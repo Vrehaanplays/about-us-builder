@@ -33,7 +33,11 @@ jobs:
       - uses: swift-actions/setup-swift@v2
         with: { swift-version: "6.1" }
       - run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
-      - run: swift test --skip EndToEndTests/testNeuralPipelineMeetsRetrievalFloors
+      - name: swift test
+        run: |
+          set -o pipefail
+          swift test --skip EndToEndTests/testNeuralPipelineMeetsRetrievalFloors 2>&1 | tee test.log | tail -3
+          echo "=== REPORT (core) ==="; grep -E "Executed [0-9]+ tests?, with" test.log | tail -1
 
   macos-core:
     name: Core tests (macOS)
@@ -44,7 +48,11 @@ jobs:
       - name: Select newest Xcode
         run: |
           X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1); echo "Using $X"; sudo xcode-select -s "$X"; xcodebuild -version; swift --version
-      - run: swift test --skip EndToEndTests/testNeuralPipelineMeetsRetrievalFloors
+      - name: swift test
+        run: |
+          set -o pipefail
+          swift test --skip EndToEndTests/testNeuralPipelineMeetsRetrievalFloors 2>&1 | tee test.log | tail -3
+          echo "=== REPORT (core) ==="; grep -E "Executed [0-9]+ tests?, with" test.log | tail -1
 
   ios-sim:
     name: iOS app (Simulator build + unit tests)
