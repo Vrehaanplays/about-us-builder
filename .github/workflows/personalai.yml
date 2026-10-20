@@ -14,6 +14,10 @@ on:
         description: "Also produce a signed build (requires the signing secrets documented in PersonalAI/docs/DISTRIBUTION.md)"
         type: boolean
         default: false
+      commit_screenshots:
+        description: "Commit UI-test screenshots to PersonalAI/docs/screens on this branch (for review; adds binary files)"
+        type: boolean
+        default: false
       publish_release:
         description: "Attach the unsigned .ipa to a public pre-release named personalai-latest (easier download than an Actions artifact)"
         type: boolean
@@ -55,9 +59,11 @@ jobs:
           echo "=== REPORT (core) ==="; grep -E "Executed [0-9]+ tests?, with" test.log | tail -1
 
   ios-sim:
-    name: iOS app (Simulator build + unit tests)
+    name: iOS app (Simulator build + unit tests + UI tests)
     runs-on: macos-26
     needs: [ macos-core ]
+    permissions:
+      contents: write
     defaults: { run: { working-directory: PersonalAI/App } }
     steps:
       - uses: actions/checkout@v4
@@ -84,6 +90,32 @@ jobs:
           DEST=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if 'iPhone' in x['name']))")
           xcodebuild test-without-building -skipMacroValidation -project PersonalAIApp.xcodeproj -scheme PersonalAIApp -destination "id=$DEST" -derivedDataPath build/sim \
             -resultBundlePath build/tests.xcresult 2>&1 | tee test-sim.log | tail -25
+      - name: Export UI-test screenshots
+        if: always()
+        run: |
+          rm -rf shots && mkdir -p shots
+          xcrun xcresulttool export attachments --path build/tests.xcresult --output-path shots 2>&1 | tail -3 || true
+          python3 - <<'PY'
+          import json, os, shutil
+          d = "shots"
+          try:
+              m = json.load(open(os.path.join(d, "manifest.json")))
+              for t in m:
+                  for a in t.get("attachments", []):
+                      src = os.path.join(d, a["exportedFileName"]); name = a.get("suggestedHumanReadableName", a["exportedFileName"]).split("_")[0]
+                      shutil.copy(src, os.path.join(d, name + ".png"))
+          except Exception as e:
+              print("manifest handling:", e)
+          PY
+          ls shots | head -30
+      - name: Commit screenshots (only when asked)
+        if: github.event_name == 'workflow_dispatch' && inputs.commit_screenshots
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p PersonalAI/docs/screens && rm -f PersonalAI/docs/screens/*.png
+          cp PersonalAI/App/shots/[0-9][0-9]-*.png PersonalAI/docs/screens/ 2>/dev/null || true
+          git config user.name "ci"; git config user.email "ci@users.noreply.github.com"
+          git add PersonalAI/docs/screens && git commit -m "PersonalAI: UI-test screenshots from CI (synthetic data, iOS Simulator)" && git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" || echo "nothing to commit"
       - name: Save build cache
         if: always()
         uses: actions/cache/save@v4
@@ -97,6 +129,7 @@ jobs:
           path: |
             PersonalAI/App/*.log
             PersonalAI/App/build/tests.xcresult
+            PersonalAI/App/shots
           if-no-files-found: warn
       - name: Report
         if: always()

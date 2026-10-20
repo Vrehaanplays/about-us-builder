@@ -8,6 +8,7 @@ struct ChatView: View {
     @State private var evidence: EvidenceRequest?
     @State private var showContext = false
     @FocusState private var focused: Bool
+    @Environment(\.dismiss) private var dismiss
 
     init(conversationID: Int64?) { _vm = State(initialValue: ChatViewModel(conversationID: conversationID)) }
 
@@ -28,6 +29,8 @@ struct ChatView: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 10) {
+            Button { dismiss() } label: { Image(systemName: "chevron.left").font(.system(size: 20, weight: .heavy)).frame(width: 44, height: 44) }
+                .accessibilityLabel("Back to chats")
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(PBFont.heavy(22, relativeTo: .title2)).lineLimit(1)
                 HStack(spacing: 8) {

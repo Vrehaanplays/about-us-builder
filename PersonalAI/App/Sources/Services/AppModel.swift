@@ -50,7 +50,9 @@ final class AppModel {
         guard services == nil else { return }
         do {
             let base = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true).appendingPathComponent("PersonalAI", isDirectory: true)
-            let dataDir = base.appendingPathComponent("Data", isDirectory: true)
+            let args = ProcessInfo.processInfo.arguments
+            let uiTest = args.contains("--uitest")        // UI-test mode: throwaway data directory seeded with the synthetic evaluation corpus
+            let dataDir = uiTest ? FileManager.default.temporaryDirectory.appendingPathComponent("uitest-\(UUID().uuidString)", isDirectory: true) : base.appendingPathComponent("Data", isDirectory: true)
             var modelsDir = base.appendingPathComponent("Models", isDirectory: true)
             try FileManager.default.createDirectory(at: modelsDir, withIntermediateDirectories: true)
             var rv = URLResourceValues(); rv.isExcludedFromBackup = true       // multi-GB, re-downloadable
@@ -58,6 +60,7 @@ final class AppModel {
 
             let svc = try PersonalAIServices(directory: dataDir)
             services = svc
+            if uiTest { await seedForUITest(svc, onboarding: args.contains("--uitest-onboarding")) }
             let store = ModelStore(root: modelsDir, transport: transport, freeSpace: { DeviceInfo.freeDiskBytes })
             modelStore = store
             observerID = await store.observe { [weak self] id, state in Task { @MainActor in self?.modelStates[id] = state; self?.modelStateChanged(id, state) } }
@@ -94,6 +97,18 @@ final class AppModel {
         let have = DeviceInfo.availableMemoryBytes
         guard need > have else { return nil }
         return "\(spec.displayName) needs about \(ByteCountFormatter.string(Int64(need))) of memory, and iOS currently allows this app about \(ByteCountFormatter.string(Int64(have))). It may be closed by iOS while loading or answering. A smaller model is safer."
+    }
+
+    /// Deterministic, non-personal content so automated UI tests and screenshots have something real to show.
+    private func seedForUITest(_ s: PersonalAIServices, onboarding: Bool) async {
+        settings.onboarded = !onboarding
+        settings.chatModelID = ""; settings.embedderID = ""
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("uitest-export-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? EvalSuite.chatGPTExport(EvalCorpus.standard).write(to: dir.appendingPathComponent("conversations.json"))
+        _ = try? s.importer.importItem(at: dir)
+        let ex = MemoryExtractor(archive: s.archive, memory: s.memory, entities: s.entities, generator: nil)
+        for c in (try? s.archive.conversations(limit: 100)) ?? [] { _ = try? await ex.extract(conversationID: c.id, maxWindows: 200) }
     }
 
     private func autoLoadModels() async {

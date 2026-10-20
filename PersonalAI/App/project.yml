@@ -78,6 +78,12 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  PersonalAIAppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [ UITests ]
+    dependencies:
+      - target: PersonalAIApp
   PersonalAIAppTests:
     type: bundle.unit-test
     platform: iOS
@@ -86,5 +92,5 @@ targets:
       - target: PersonalAIApp
 schemes:
   PersonalAIApp:
-    build: { targets: { PersonalAIApp: all, PersonalAIAppTests: [ test ] } }
-    test: { targets: [ PersonalAIAppTests ] }
+    build: { targets: { PersonalAIApp: all, PersonalAIAppTests: [ test ], PersonalAIAppUITests: [ test ] } }
+    test: { targets: [ PersonalAIAppTests, PersonalAIAppUITests ] }
