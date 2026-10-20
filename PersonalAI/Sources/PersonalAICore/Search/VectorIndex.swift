@@ -103,6 +103,21 @@ public final class VectorIndex: @unchecked Sendable {
         try archive.write { w in try w.transaction { for id in ids { try w.run("DELETE FROM vec WHERE space=? AND item_id=?", [.int(space), .int(id)]) } } }
     }
 
+    /// The stored (dequantised) vector for an item, used for "more like this" associative hops without re-embedding.
+    public func vector(forItem id: Int64) throws -> [Float]? {
+        try archive.read { r in
+            try r.queryOne("SELECT scale, v FROM vec WHERE space=? AND item_id=?", [.int(space), .int(id)]) { row -> [Float] in
+                let scale = Float(row.double(0))
+                return row.withBlob(1) { raw in
+                    let p = raw.bindMemory(to: Int8.self)
+                    var v = (0..<min(dim, p.count)).map { Float(p[$0]) * scale }
+                    VectorMath.normalize(&v)
+                    return v
+                }
+            }
+        }
+    }
+
     // MARK: search
 
     /// Approximate search. `nprobe` trades recall for latency; nil picks a default from the list count.

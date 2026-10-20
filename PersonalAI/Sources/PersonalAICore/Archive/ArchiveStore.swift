@@ -219,3 +219,10 @@ public final class ArchiveStore: @unchecked Sendable {
         }
     }
 }
+
+extension ArchiveStore {
+    /// Groups many appends into one transaction (bulk import / benchmarks). Nested `appendMessages` calls join it.
+    public func batch<T>(_ body: () throws -> T) throws -> T {
+        try db.write { w in try w.transaction { try body() } }
+    }
+}

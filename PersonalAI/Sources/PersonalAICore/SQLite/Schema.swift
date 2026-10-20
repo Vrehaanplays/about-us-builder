@@ -72,6 +72,7 @@ public enum Schema {
           INSERT INTO message_fts(message_fts, rowid, text) VALUES('delete', old.id, old.text);
         END
         """,
+        "CREATE VIRTUAL TABLE message_vocab USING fts5vocab(message_fts, 'row')",
         """
         CREATE VIRTUAL TABLE conversation_fts USING fts5(
           title, content='conversation', content_rowid='id', tokenize='unicode61 remove_diacritics 2'
@@ -206,7 +207,7 @@ public enum Schema {
         "CREATE INDEX memory_status ON memory(status, kind)",
         "CREATE INDEX memory_conv ON memory(scope_conversation) WHERE scope_conversation IS NOT NULL",
         """
-        CREATE VIRTUAL TABLE memory_fts USING fts5(text, content='memory', content_rowid='id', tokenize='unicode61 remove_diacritics 2')
+        CREATE VIRTUAL TABLE memory_fts USING fts5(text, content='memory', content_rowid='id', tokenize='porter unicode61 remove_diacritics 2')
         """,
         """
         CREATE TRIGGER memory_ai AFTER INSERT ON memory BEGIN INSERT INTO memory_fts(rowid, text) VALUES (new.id, new.text); END
@@ -283,7 +284,7 @@ public enum Schema {
         """,
         "CREATE INDEX asset_time ON asset(created_at)",
         """
-        CREATE VIRTUAL TABLE asset_fts USING fts5(name, text, caption, labels, place, content='asset', content_rowid='id', tokenize='unicode61 remove_diacritics 2')
+        CREATE VIRTUAL TABLE asset_fts USING fts5(name, text, caption, labels, place, content='asset', content_rowid='id', tokenize='porter unicode61 remove_diacritics 2')
         """,
         """
         CREATE TRIGGER asset_ai AFTER INSERT ON asset BEGIN
