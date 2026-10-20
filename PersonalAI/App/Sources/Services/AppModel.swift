@@ -138,7 +138,9 @@ final class AppModel {
             let dir = await store.directory(for: id)
             try await engine.load(directory: dir, modelID: id, maxContext: spec.contextTokens) { [weak self] s in Task { @MainActor in self?.engineStatus = s } }
             if let l = await engine.loadedModel {
-                profileBox.set(ModelProfile(id: id, maxContext: l.maxContext, weightsBytes: l.weightsBytes, kvBytesPerToken: l.kvBytesPerToken, supportsPrefixCache: true))
+                let speed = settings.measuredSpeed(for: id)
+                profileBox.set(ModelProfile(id: id, maxContext: l.maxContext, weightsBytes: l.weightsBytes, kvBytesPerToken: l.kvBytesPerToken,
+                                            measuredPrefillTPS: speed.prefill, measuredDecodeTPS: speed.decode, supportsPrefixCache: true))
             }
             loadedChatModelID = id; settings.chatModelID = id; engineStatus = nil
         } catch {

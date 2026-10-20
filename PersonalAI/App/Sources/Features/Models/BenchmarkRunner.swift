@@ -84,6 +84,15 @@ final class BenchmarkRunner {
                 steps[2].detail = "\(m.stats.promptTokens) tok → first word in \(Int(m.stats.timeToFirstTokenMs ?? 0)) ms"
             } else { r.notes.append("Generation failed at \(n) tokens."); break }
         }
+        // feed the measured speeds back to the context planner for this model
+        let long = r.generation.filter { ($0["promptTokens"] ?? 0) >= 1000 }.compactMap { $0["prefillTPS"] }.filter { $0 > 0 }.sorted()
+        let dec = r.generation.compactMap { $0["decodeTPS"] }.filter { $0 > 0 }.sorted()
+        if let pre = long.isEmpty ? nil : long[long.count / 2] {
+            let q = dec.isEmpty ? nil : dec[dec.count / 2]
+            app.settings.storeMeasuredSpeed(for: id, prefill: pre, decode: q)
+            var prof = app.profileBox.get(); prof.measuredPrefillTPS = pre; prof.measuredDecodeTPS = q; app.profileBox.set(prof)
+            r.notes.append(String(format: "Context planner now uses this phone's measured prefill speed (%.0f tokens/s) for %@.", pre, id))
+        }
         set(2, .done, steps[2].detail)
 
         // 3 prefix reuse

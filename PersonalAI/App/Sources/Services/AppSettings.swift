@@ -18,6 +18,16 @@ final class AppSettings {
     var allowModelDownloads: Bool { didSet { d.set(allowModelDownloads, forKey: "allowDownloads") } }
     var autoLoadModelOnLaunch: Bool { didSet { d.set(autoLoadModelOnLaunch, forKey: "autoLoad") } }
 
+    /// Speeds measured on this phone by the in-app benchmark. The context planner uses them to bound time-to-first-token; never a guess.
+    func measuredSpeed(for modelID: String) -> (prefill: Double?, decode: Double?) {
+        let p = d.double(forKey: "prefillTPS.\(modelID)"), q = d.double(forKey: "decodeTPS.\(modelID)")
+        return (p > 0 ? p : nil, q > 0 ? q : nil)
+    }
+    func storeMeasuredSpeed(for modelID: String, prefill: Double?, decode: Double?) {
+        if let p = prefill, p > 0 { d.set(p, forKey: "prefillTPS.\(modelID)") }
+        if let q = decode, q > 0 { d.set(q, forKey: "decodeTPS.\(modelID)") }
+    }
+
     init() {
         let d = UserDefaults.standard
         onboarded = d.bool(forKey: "onboarded")
