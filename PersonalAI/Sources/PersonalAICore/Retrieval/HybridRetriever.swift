@@ -244,9 +244,9 @@ public final class HybridRetriever: @unchecked Sendable {
 
         // ---- expand to readable windows ----
         var spans: [EvidenceSpan] = []
-        let titles = Dictionary(uniqueKeysWithValues: try archive.db.read { db in
-            try picked.map { $0.c.conv }.map { cid in (cid, try db.queryOne("SELECT COALESCE(title,'Untitled') FROM conversation WHERE id=?", [.int(cid)]) { $0.text(0) } ?? "Untitled") }
-        })
+        let titles: [Int64: String] = Dictionary(try archive.db.read { db in
+            try Set(picked.map { $0.c.conv }).map { cid in (cid, try db.queryOne("SELECT COALESCE(title,'Untitled') FROM conversation WHERE id=?", [.int(cid)]) { $0.text(0) } ?? "Untitled") }
+        }, uniquingKeysWith: { a, _ in a })
         for s in picked {
             let isSingle = s.c.lo == s.c.hi
             var lo = max(0, s.c.lo - (isSingle ? cfg.windowBefore : 0)), hi = s.c.hi + (isSingle ? cfg.windowAfter : 0)

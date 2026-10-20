@@ -59,7 +59,7 @@ public enum Schema {
         """
         CREATE VIRTUAL TABLE message_fts USING fts5(
           text, content='message', content_rowid='id',
-          tokenize='unicode61 remove_diacritics 2', prefix='3'
+          tokenize='unicode61 remove_diacritics 2'
         )
         """,
         """
@@ -119,7 +119,9 @@ public enum Schema {
           dim INTEGER NOT NULL,
           item_kind TEXT NOT NULL,          -- chunk | asset | memory
           trained_count INTEGER NOT NULL DEFAULT 0,
-          nlist INTEGER NOT NULL DEFAULT 1
+          nlist INTEGER NOT NULL DEFAULT 1,
+          nprobe INTEGER,
+          measured_recall REAL
         )
         """,
         """
@@ -128,13 +130,15 @@ public enum Schema {
           PRIMARY KEY(space, list)
         ) WITHOUT ROWID
         """,
+        // Vectors live in contiguous blocks (one SQLite row per ~128 vectors) so a scan costs memory bandwidth, not per-row overhead.
         """
-        CREATE TABLE vec(
-          space INTEGER NOT NULL, list INTEGER NOT NULL, item_id INTEGER NOT NULL, scale REAL NOT NULL, v BLOB NOT NULL,
-          PRIMARY KEY(space, list, item_id)
+        CREATE TABLE vec_block(
+          space INTEGER NOT NULL, list INTEGER NOT NULL, block INTEGER NOT NULL, n INTEGER NOT NULL,
+          ids BLOB NOT NULL, scales BLOB NOT NULL, v BLOB NOT NULL,
+          PRIMARY KEY(space, list, block)
         ) WITHOUT ROWID
         """,
-        "CREATE INDEX vec_item ON vec(space, item_id)",
+        "CREATE TABLE vec_purge(space INTEGER NOT NULL, item_id INTEGER NOT NULL, PRIMARY KEY(space, item_id)) WITHOUT ROWID",
 
         // ---- entities and relationships ----
         """
@@ -200,6 +204,7 @@ public enum Schema {
           created_by TEXT NOT NULL,                     -- rule | llm:<model> | user
           created_at REAL NOT NULL,
           updated_at REAL NOT NULL,
+          embedded INTEGER NOT NULL DEFAULT 0,
           meta TEXT
         )
         """,

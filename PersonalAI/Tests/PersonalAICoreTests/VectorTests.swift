@@ -18,6 +18,7 @@ final class VectorTests: XCTestCase {
             try idx.add((b..<min(b + 2000, n)).map { (Int64($0), vecs[$0]) })
         }
         XCTAssertEqual(try idx.count(), n)
+        idx.exactLimit = 1000
         XCTAssertTrue(try idx.needsTraining())
         try idx.train(lists: 48)
         XCTAssertEqual(try idx.count(), n, "reassignment must not lose or duplicate vectors")
@@ -33,12 +34,39 @@ final class VectorTests: XCTestCase {
         print("IVF recall@10 = \(recall)")
         XCTAssertGreaterThan(recall, 0.85)
 
+        // calibration finds a probe count that meets the recall target on this very index, and reports what it achieved
+        let q = try idx.calibrate(target: 0.9)
+        XCTAssertFalse(q.exact)
+        XCTAssertNotNil(q.nprobe); XCTAssertGreaterThanOrEqual(q.measuredRecall ?? 0, 0.9)
+        print("calibrated nprobe=\(q.nprobe ?? 0) of \(q.lists), recall \(q.measuredRecall ?? 0)")
+
+        // physical removal
+        try idx.remove(ids: [123, 124, 125])
+        XCTAssertEqual(try idx.count(), n - 3)
+        XCTAssertFalse(try idx.searchExact(vecs[123], k: 5).contains { $0.id == 123 })
+
         // exact int8 result agrees with float ground truth at the top
-        var q = vecs[123]
-        let top = try idx.searchExact(q, k: 1).first!
-        XCTAssertEqual(top.id, 123)
-        q = vecs[0]
-        _ = q
+        XCTAssertEqual(try idx.searchExact(vecs[200], k: 1).first?.id, 200)
+    }
+
+    func testErasedChunkVectorsArePhysicallyPurged() async throws {
+        let (db, dir) = try makeTempDB(); defer { try? FileManager.default.removeItem(at: dir) }
+        let store = ArchiveStore(db: db)
+        let s = try store.upsertSource(kind: "generic", name: "t", externalID: "t")
+        let (c, _) = try store.upsertConversation(sourceID: s, externalID: "c", title: "t", createdAt: 0, updatedAt: 0)
+        try store.appendMessages(conversationID: c, [NewMessage(role: .user, text: "my secret plan involves zebras", createdAt: 1, externalID: "a")])
+        let idx = try VectorIndex(archive: db, space: 1, name: "chunks", embedderID: "h", dim: 64)
+        let h = HashingEmbedder(dim: 64)
+        let pipe = IndexingPipeline(archive: store, chunker: Chunker(store: store), vectors: idx, embedder: h)
+        try pipe.chunkStep(conversations: 10)
+        let embedded = try await pipe.embedStep()
+        XCTAssertEqual(embedded, 1)
+        XCTAssertEqual(try idx.count(), 1)
+        let impact = try store.eraseConversation(c)
+        XCTAssertEqual(impact.vectors, 1)
+        XCTAssertEqual(try idx.count(), 1, "queued, not yet removed")
+        XCTAssertEqual(try idx.applyPurges(), 1)
+        XCTAssertEqual(try idx.count(), 0, "after purge no embedding of the erased text remains")
     }
 
     func testChangingEmbedderInvalidatesOldVectors() throws {

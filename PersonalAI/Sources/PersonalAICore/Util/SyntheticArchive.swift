@@ -55,6 +55,8 @@ public struct SyntheticArchive {
         let needleEvery = needleCount > 0 ? max(1, conversations / needleCount) : Int.max
         var needles: [Needle] = []
         var produced = 0
+        var dbSecs = 0.0
+        let traceStart = DispatchTime.now()
 
         let chunkConvs = 64
         var ci = 0
@@ -86,11 +88,17 @@ public struct SyntheticArchive {
                         msgs[pos].text = text
                         needles.append(Needle(messageText: text, query: "what did I say about the \(rare1) \(secret) deadline", conversationExternalID: ext, role: .user))
                     }
+                    let d0 = DispatchTime.now()
                     try store.appendMessages(conversationID: cid, msgs)
+                    dbSecs += Double(DispatchTime.now().uptimeNanoseconds - d0.uptimeNanoseconds) / 1e9
                     produced += msgs.count
                 }
             }
             progress?(produced)
+        }
+        if ProcessInfo.processInfo.environment["PAI_TRACE"] != nil {
+            let total = Double(DispatchTime.now().uptimeNanoseconds - traceStart.uptimeNanoseconds) / 1e9
+            FileHandle.standardError.write(Data(String(format: "[synthetic] %d msgs: total %.1fs, db append %.1fs (%.0f msg/s DB-only)\n", produced, total, dbSecs, Double(produced) / max(dbSecs, 1e-9)).utf8))
         }
         return needles
     }

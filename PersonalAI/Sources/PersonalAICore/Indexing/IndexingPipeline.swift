@@ -45,13 +45,12 @@ public final class IndexingPipeline: @unchecked Sendable {
     @discardableResult
     public func embedMemoriesStep(limit: Int = 64) async throws -> Int {
         guard let memoryVectors, let embedder else { return 0 }
-        let rows: [(Int64, String)] = try archive.db.read { try $0.query("""
-            SELECT id, text FROM memory WHERE status IN ('active','disputed','superseded')
-              AND NOT EXISTS (SELECT 1 FROM vec v WHERE v.space=? AND v.item_id=memory.id) LIMIT ?
-            """, [.int(memoryVectors.space), .int(limit)]) { ($0.int(0), $0.text(1)) } }
+        let rows: [(Int64, String)] = try archive.db.read { try $0.query("SELECT id, text FROM memory WHERE embedded=0 AND status != 'retracted' LIMIT ?", [.int(limit)]) { ($0.int(0), $0.text(1)) } }
         if rows.isEmpty { return 0 }
         let vecs = try await embedder.embed(rows.map(\.1), kind: .document)
+        try memoryVectors.remove(ids: rows.map(\.0))
         try memoryVectors.add(zip(rows.map(\.0), vecs).map { (id: $0, vector: $1) })
+        try archive.db.write { w in try w.transaction { for r in rows { try w.run("UPDATE memory SET embedded=1 WHERE id=?", [.int(r.0)]) } } }
         return rows.count
     }
 

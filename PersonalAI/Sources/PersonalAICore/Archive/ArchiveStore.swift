@@ -179,7 +179,8 @@ public final class ArchiveStore: @unchecked Sendable {
                     SELECT DISTINCT memory_id FROM memory_evidence WHERE message_id IN (SELECT id FROM message WHERE \(whereClause))
                     """, params) { $0.int(0) }
                 impact.evidenceLinks = Int(try w.scalarInt("SELECT COUNT(*) FROM memory_evidence WHERE message_id IN (SELECT id FROM message WHERE \(whereClause))", params))
-                impact.vectors = try w.run("DELETE FROM vec WHERE space IN (SELECT space FROM vec_space WHERE item_kind='chunk') AND item_id IN (SELECT id FROM chunk WHERE \(whereClause))", params)
+                // vectors of erased chunks are queued for physical removal (VectorIndex.applyPurges) so no embedding of erased text lingers on disk
+                impact.vectors = try w.run("INSERT OR IGNORE INTO vec_purge(space, item_id) SELECT s.space, c.id FROM chunk c JOIN vec_space s ON s.item_kind='chunk' WHERE c.\(whereClause)", params)
                 impact.chunks = try w.run("DELETE FROM chunk WHERE \(whereClause)", params)
                 impact.summaries = try w.run("DELETE FROM summary WHERE \(whereClause)", params)
                 impact.messages = try w.run("DELETE FROM message WHERE \(whereClause)", params)   // cascades evidence / mentions / asset links
@@ -212,7 +213,7 @@ public final class ArchiveStore: @unchecked Sendable {
                 messages: Int(try r.scalarInt("SELECT COALESCE(SUM(message_count),0) FROM conversation")),
                 chunks: Int(try r.scalarInt("SELECT COUNT(*) FROM chunk")),
                 chunksPending: Int(try r.scalarInt("SELECT COUNT(*) FROM chunk WHERE embedded=0")),
-                vectors: Int(try r.scalarInt("SELECT COUNT(*) FROM vec")),
+                vectors: Int(try r.scalarInt("SELECT COALESCE(SUM(n),0) FROM vec_block")),
                 memories: Int(try r.scalarInt("SELECT COUNT(*) FROM memory WHERE status IN ('active','disputed')")),
                 assets: Int(try r.scalarInt("SELECT COUNT(*) FROM asset")),
                 dbBytes: db.fileSize())
