@@ -14,6 +14,7 @@ final class WorkGate: @unchecked Sendable {
             if let o = onlyCharging { self.onlyCharging = o }
         }
     }
+    var isCharging: Bool { lock.withLock { charging } }
     func level() -> WorkLevel {
         let s = lock.withLock { (generating, foreground, charging, onlyCharging) }
         if s.0 { return .none }

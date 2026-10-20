@@ -83,3 +83,35 @@ final class ExtractorSchedulingTests: XCTestCase {
         XCTAssertTrue(current?.text.contains("Porto") ?? false)
     }
 }
+
+final class ModelAssistedExtractionTests: XCTestCase {
+    struct Scripted: TextGenerator {
+        var modelName: String { "scripted-llm" }
+        func complete(system: String, user: String, maxTokens: Int) async throws -> String {
+            #"{"entities":[{"name":"Priya","kind":"person","aliases":[],"description":"friend"}],"memories":[{"kind":"preference","epistemic":"stated","attribute":null,"cardinality":"multi","subject":null,"text":"The user wants Priya to pick the next book","value":null,"standing":false,"evidence":[{"msg":0,"quote":"Priya should choose the next book"}]},{"kind":"fact","epistemic":"stated","attribute":null,"cardinality":"multi","subject":null,"text":"Invented fact with a fake quote","value":null,"standing":false,"evidence":[{"msg":0,"quote":"this sentence was never said"}]}]}"#
+        }
+    }
+
+    func testLLMPassRunsAfterRulePassAndFabricatedQuotesAreRejected() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("pai-llm-\(UUID())"); defer { try? FileManager.default.removeItem(at: dir) }
+        let s = try PersonalAIServices(directory: dir)
+        let src = try s.archive.upsertSource(kind: "generic", name: "t", externalID: "t")
+        let (c, _) = try s.archive.upsertConversation(sourceID: src, externalID: "c", title: "t", createdAt: 1, updatedAt: 1)
+        _ = try s.archive.appendMessages(conversationID: c, [NewMessage(role: .user, text: "I live in Lisbon. Priya should choose the next book for our club please.", createdAt: 1)])
+
+        let rules = MemoryExtractor(archive: s.archive, memory: s.memory, entities: s.entities, generator: nil)
+        _ = try await rules.extract(conversationID: c)
+        XCTAssertNil(rules.pendingConversation())
+
+        let llm = MemoryExtractor(archive: s.archive, memory: s.memory, entities: s.entities, generator: Scripted())
+        llm.watermarkKey = "extract.llm"; llm.runRules = false
+        XCTAssertEqual(llm.pendingConversation(), c, "the model pass has its own watermark, so it still sees messages the rule pass covered")
+        let rep = try await llm.extract(conversationID: c)
+        XCTAssertEqual(rep.created, 1)
+        XCTAssertEqual(rep.rejected.count, 1, "a memory whose quote is not in the message is refused")
+        let texts = try s.memory.list().map(\.text)
+        XCTAssertTrue(texts.contains { $0.contains("Priya") })
+        XCTAssertFalse(texts.contains { $0.contains("Invented") })
+        XCTAssertNil(llm.pendingConversation())
+    }
+}

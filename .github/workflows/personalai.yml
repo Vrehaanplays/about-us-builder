@@ -91,10 +91,6 @@ jobs:
         with:
           path: PersonalAI/App/build/sim
           key: ios-sim-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-${{ github.run_id }}
-      - name: Show errors
-        if: failure()
-        run: |
-          for f in build-sim.log test-sim.log build-device.log; do [ -f $f ] && { echo "=== $f"; grep -nE "error:|error \(|Cycle|cycle|FAILED|failed" $f | head -60; }; done; true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -104,6 +100,10 @@ jobs:
             PersonalAI/App/*.log
             PersonalAI/App/build/tests.xcresult
           if-no-files-found: warn
+      - name: Show errors (compact)
+        if: failure()
+        run: |
+          for f in build-sim.log test-sim.log build-device.log; do [ -f $f ] && { echo "=== $f"; grep -E "error:|Cycle|\*\* .* FAILED|Test Case .* failed|XCTAssert" $f | sed 's#/Users/runner/work/about-us-builder/about-us-builder/PersonalAI/App/##' | cut -c1-260 | awk '!s[$0]++' | head -40; }; done; true
 
   testflight:
     name: Signed build → TestFlight (needs a paid Apple Developer account + secrets)

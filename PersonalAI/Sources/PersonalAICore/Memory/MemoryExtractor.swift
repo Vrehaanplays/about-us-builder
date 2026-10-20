@@ -93,6 +93,10 @@ public final class MemoryExtractor: @unchecked Sendable {
     let generator: TextGenerator?
     let rules = RuleExtractor()
     public var windowMessages = 14
+    /// kv prefix for this extractor's progress. Rules-only and model-assisted passes keep separate watermarks, so installing a model later
+    /// re-reads history that the free rule pass has already covered.
+    public var watermarkKey = "extract.seq"
+    public var runRules = true
     public var maxCharsPerMessage = 900
 
     public init(archive: ArchiveStore, memory: MemoryStore, entities: EntityStore, generator: TextGenerator?) {
@@ -117,7 +121,7 @@ public final class MemoryExtractor: @unchecked Sendable {
     @discardableResult
     public func extract(conversationID: Int64, maxWindows: Int = 4, shouldContinue: () -> Bool = { true }) async throws -> ExtractionReport {
         var report = ExtractionReport()
-        let key = "extract.seq.\(conversationID)"
+        let key = "\(watermarkKey).\(conversationID)"
         var seq = Int(archive.db.kvGet(key) ?? "-1") ?? -1
         for _ in 0..<maxWindows {
             guard shouldContinue() else { break }
@@ -126,7 +130,7 @@ public final class MemoryExtractor: @unchecked Sendable {
             guard !window.isEmpty else { break }
 
             // 1. rules: always, free
-            for m in window { for c in rules.candidates(for: m, conversationID: conversationID) { tally(try memory.propose(c), &report) } }
+            if runRules { for m in window { for c in rules.candidates(for: m, conversationID: conversationID) { tally(try memory.propose(c), &report) } } }
 
             // 2. model: richer structure, only if a generator is available
             if let generator, window.contains(where: { $0.role == .user && $0.text.count > 30 }) {
@@ -149,9 +153,9 @@ public final class MemoryExtractor: @unchecked Sendable {
         try? archive.db.read { r in
             try r.queryOne("""
                 SELECT c.id FROM conversation c
-                WHERE CAST(COALESCE((SELECT value FROM kv WHERE key = 'extract.seq.' || c.id), '-1') AS INTEGER) < c.message_count - 1
+                WHERE CAST(COALESCE((SELECT value FROM kv WHERE key = ? || '.' || c.id), '-1') AS INTEGER) < c.message_count - 1
                 ORDER BY c.updated_at DESC LIMIT 1
-                """) { $0.int(0) }
+                """, [.text(watermarkKey)]) { $0.int(0) }
         }
     }
 

@@ -37,7 +37,7 @@ final class AppModel {
     var conversations: [ConversationRecord] = []
     var importState: ImportUIState?
     var banner: String?
-    var isGenerating = false { didSet { gate.update(generating: isGenerating) } }
+    var isGenerating = false { didSet { gate.update(generating: isGenerating); if isGenerating { Task { await engine.cancelBackground() } } } }
 
     private var scheduler: IndexScheduler?
     private var statusTask: Task<Void, Never>?
@@ -67,7 +67,7 @@ final class AppModel {
             let c = svc.makeChatController(engine: engine, profile: { profileBox.get() }, device: { DeviceInfo.budget() })
             c.remoteAllowed = { false }     // no remote engine exists in this build; the gate stays shut regardless of settings
             chat = c
-            gate.update(onlyCharging: settings.indexOnlyWhileCharging, charging: DeviceInfo.isCharging)
+            gate.update(charging: DeviceInfo.isCharging, onlyCharging: settings.indexOnlyWhileCharging)
             boot = .ready
             refreshConversations(); refreshStorage()
             startIndexing()
@@ -163,12 +163,22 @@ final class AppModel {
         let gate = self.gate
         let sched = IndexScheduler(pipeline: s.pipeline, level: { gate.level() })
         scheduler = sched
-        let extractor = MemoryExtractor(archive: s.archive, memory: s.memory, entities: s.entities, generator: nil)
+        let rulesEx = MemoryExtractor(archive: s.archive, memory: s.memory, entities: s.entities, generator: nil)
+        let engine = self.engine
+        let llmEx = MemoryExtractor(archive: s.archive, memory: s.memory, entities: s.entities, generator: EngineTextGenerator(engine: engine, modelName: "on-device"))
+        llmEx.watermarkKey = "extract.llm"; llmEx.runRules = false
         let learn = { @MainActor [weak self] in self?.settings.learnMemoriesAutomatically ?? false }
         Task {
-            await sched.setExtractor { [extractor] in
-                guard await learn(), let cid = extractor.pendingConversation() else { return false }
-                let r = try? await extractor.extract(conversationID: cid, maxWindows: 2, shouldContinue: { gate.level() >= .full })
+            await sched.setExtractor { [rulesEx, llmEx] in
+                guard await learn() else { return false }
+                // 1. free rule pass over anything new
+                if let cid = rulesEx.pendingConversation() {
+                    let r = try? await rulesEx.extract(conversationID: cid, maxWindows: 4, shouldContinue: { gate.level() >= .full })
+                    return (r?.windowsProcessed ?? 0) > 0
+                }
+                // 2. model-assisted pass: only while charging, idle, cool, with a model already in memory
+                guard gate.level() == .full, gate.isCharging, await engine.isLoaded, let cid = llmEx.pendingConversation() else { return false }
+                let r = try? await llmEx.extract(conversationID: cid, maxWindows: 1, shouldContinue: { gate.level() == .full })
                 return (r?.windowsProcessed ?? 0) > 0
             }
             await sched.start()

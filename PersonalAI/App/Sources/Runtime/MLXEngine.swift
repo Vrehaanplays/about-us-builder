@@ -17,6 +17,7 @@ actor MLXEngine: InferenceEngine {
     private var loaded: Loaded?
     private var kvTier: Int?
     private var running: Task<Void, Never>?
+    private var background: Task<Void, Never>?
 
     var info: EngineInfo? {
         guard let l = loaded else { return nil }
@@ -49,6 +50,9 @@ actor MLXEngine: InferenceEngine {
     }
 
     func cancel() async { running?.cancel() }
+    /// Stops model-assisted background work so a chat turn never waits behind it.
+    func cancelBackground() async { background?.cancel() }
+    var isLoaded: Bool { container != nil }
 
     func trimMemory(unloadWeights: Bool) async {
         running?.cancel()
@@ -61,10 +65,10 @@ actor MLXEngine: InferenceEngine {
         AsyncThrowingStream { cont in
             let task = Task { await self.run(messages: messages, params: params, cont: cont) }
             cont.onTermination = { _ in task.cancel() }
-            Task { await self.remember(task) }
+            Task { await self.remember(task, background: params.isolated) }
         }
     }
-    private func remember(_ t: Task<Void, Never>) { running = t }
+    private func remember(_ t: Task<Void, Never>, background isBackground: Bool) { if isBackground { background = t } else { running = t } }
 
     private func run(messages: [ChatMessage], params: GenerationParams, cont: AsyncThrowingStream<GenerationEvent, Error>.Continuation) async {
         guard let container, loaded != nil else { cont.finish(throwing: EngineError.notLoaded); return }
@@ -77,13 +81,15 @@ actor MLXEngine: InferenceEngine {
             default: return nil
             }
         }
-        let tier = KVTier.choose(requested: params.maxKVSize ?? 8192, current: kvTier)
-        let tierChanged = kvTier != nil && kvTier != tier
-        kvTier = tier
+        let tier = params.isolated ? KVTier.choose(requested: params.maxKVSize ?? 4096, current: nil) : KVTier.choose(requested: params.maxKVSize ?? 8192, current: kvTier)
+        let tierChanged = !params.isolated && kvTier != nil && kvTier != tier
+        if !params.isolated { kvTier = tier }
         let gp = GenerateParameters(maxTokens: params.maxTokens, maxKVSize: tier, kvBits: params.kvBits, temperature: params.temperature, topP: params.topP)
         let additional: [String: any Sendable] = ["enable_thinking": false]
         let chat: ChatSession
-        if let s = session, !tierChanged {
+        if params.isolated {
+            chat = ChatSession(container, instructions: system, history: history, generateParameters: gp, additionalContext: additional)
+        } else if let s = session, !tierChanged {
             chat = await s.fork(history: history)
             chat.instructions = system
             chat.generateParameters = gp
@@ -91,7 +97,7 @@ actor MLXEngine: InferenceEngine {
             chat = ChatSession(container, instructions: system, history: history, generateParameters: gp, additionalContext: additional)
         }
         chat.additionalContext = additional
-        session = chat
+        if !params.isolated { session = chat }
 
         var stats = GenerationStats()
         var strip = ThinkStripper()

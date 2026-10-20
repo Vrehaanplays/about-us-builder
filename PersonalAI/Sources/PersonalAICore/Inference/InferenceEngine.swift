@@ -8,6 +8,8 @@ public struct GenerationParams: Sendable {
     public var maxKVSize: Int?
     /// KV quantisation bits (4/8) chosen by the planner under memory pressure.
     public var kvBits: Int?
+    /// Background work (memory extraction): must not touch the chat session's cache, and may be cancelled whenever the user starts typing.
+    public var isolated = false
     public init() {}
 }
 
