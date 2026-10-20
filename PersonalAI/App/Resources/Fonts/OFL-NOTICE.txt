@@ -1,0 +1,2 @@
+Bricolage Grotesque is distributed under the SIL Open Font License 1.1 (Google Fonts, Latin subset).
+These two files are static instances (weights 500 and 800) cut from the variable font used by the Playbook design system.

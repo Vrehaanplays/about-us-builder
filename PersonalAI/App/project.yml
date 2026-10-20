@@ -6,7 +6,7 @@ options:
   generateEmptyDirectories: true
 settings:
   base:
-    SWIFT_VERSION: "6.0"
+    SWIFT_VERSION: "5.0"          # app target uses Swift 5 language mode; PersonalAICore (a Swift 6 package) is unaffected
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: ""
@@ -14,6 +14,12 @@ settings:
 packages:
   PersonalAICore:
     path: ..
+  MLXSwift:
+    url: https://github.com/ml-explore/mlx-swift
+    from: 0.32.3
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation
+    from: 0.9.19
   MLXSwiftLM:
     url: https://github.com/ml-explore/mlx-swift-lm
     revision: 48114eedf3c3d4a682a6b1d644cc5af5c2945d10
@@ -38,6 +44,8 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSPhotoLibraryUsageDescription: "Optional. Lets Personal AI index text and labels in the photos you choose, entirely on this device."
         UIFileSharingEnabled: false
+        UIAppFonts: [ BricolageGrotesque-Medium.ttf, BricolageGrotesque-ExtraBold.ttf ]
+        UIViewControllerBasedStatusBarAppearance: true
         UIBackgroundModes: [ processing ]
         BGTaskSchedulerPermittedIdentifiers: [ com.vrehaanplays.personalai.indexing ]
         CFBundleDocumentTypes:
@@ -56,6 +64,10 @@ targets:
         product: MLXEmbedders
       - package: MLXSwiftLM
         product: MLXHuggingFace
+      - package: MLXSwift
+        product: MLX
+      - package: ZIPFoundation
+        product: ZIPFoundation
       - package: SwiftTransformers
         product: Tokenizers
       - package: SwiftHuggingFace

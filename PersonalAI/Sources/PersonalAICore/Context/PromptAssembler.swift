@@ -40,6 +40,8 @@ public final class PromptAssembler: @unchecked Sendable {
     public var planner = ContextPlanner()
     /// Front-of-history eviction granularity in messages (see step 2). Larger = fewer cache invalidations, smaller verbatim window.
     public var evictionQuantum = 16
+    /// When false the model sees only the live conversation: no archive search, no memory notes (standing instructions still apply).
+    public var retrievalEnabled = true
     public var persona = """
     You are the user's personal AI. You run privately on their device. Be direct and useful.
     You may be given "History" (verbatim excerpts retrieved from the user's archive) and "Notes" (derived memories). Rules:
@@ -89,7 +91,7 @@ public final class PromptAssembler: @unchecked Sendable {
         let tailStartSeq = history.first?.seq ?? (probe.last.map { $0.seq + 1 } ?? 0)
 
         // 3. retrieval (skipped for trivial turns)
-        let retrieval: RetrievalResult? = try await retriever.retrieve(
+        let retrieval: RetrievalResult? = !retrievalEnabled ? nil : try await retriever.retrieve(
             userText, context: RetrievalContext(currentConversationID: conversationID, visibleTailStartSeq: tailStartSeq, now: now), hasHistory: hasOtherHistory || total > 0)
 
         // 4. system block: persona + standing notes + conversation-scoped decisions + outline of what scrolled out

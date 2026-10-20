@@ -1,18 +1,17 @@
 import SwiftUI
-import PersonalAICore
-import MLXLLM
-import MLXLMCommon
-import MLXEmbedders
-import MLXHuggingFace
-import HuggingFace
-import Tokenizers
+import UIKit
 
 @main
 struct PersonalAIApp: App {
+    @State private var model = AppModel()
+    @Environment(\.scenePhase) private var phase
+
     var body: some Scene {
         WindowGroup {
-            let loader: any TokenizerLoader = #huggingFaceTokenizerLoader()
-            Text("Personal AI \(String(describing: type(of: loader)))")
+            ThemedRoot { RootView() }
+                .environment(model)
+                .onChange(of: phase) { _, new in model.scenePhaseChanged(new) }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in model.memoryWarning() }
         }
     }
 }

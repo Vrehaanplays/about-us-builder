@@ -64,3 +64,22 @@ final class ServicesTests: XCTestCase {
         XCTAssertEqual(try s.vectors.count(), 1)
     }
 }
+
+final class ExtractorSchedulingTests: XCTestCase {
+    func testPendingConversationTracksWatermarks() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("pai-ext-\(UUID())"); defer { try? FileManager.default.removeItem(at: dir) }
+        let s = try PersonalAIServices(directory: dir)
+        let src = try s.archive.upsertSource(kind: "generic", name: "t", externalID: "t")
+        let (c, _) = try s.archive.upsertConversation(sourceID: src, externalID: "c", title: "t", createdAt: 1, updatedAt: 1)
+        _ = try s.archive.appendMessages(conversationID: c, [NewMessage(role: .user, text: "I live in Lisbon.", createdAt: 1), NewMessage(role: .assistant, text: "Nice.", createdAt: 2)])
+        let ex = MemoryExtractor(archive: s.archive, memory: s.memory, entities: s.entities, generator: nil)
+        XCTAssertEqual(ex.pendingConversation(), c)
+        _ = try await ex.extract(conversationID: c, maxWindows: 10)
+        XCTAssertNil(ex.pendingConversation(), "everything processed")
+        _ = try s.archive.appendMessages(conversationID: c, [NewMessage(role: .user, text: "Actually I moved to Porto.", createdAt: 3)])
+        XCTAssertEqual(ex.pendingConversation(), c, "new messages re-queue the conversation")
+        _ = try await ex.extract(conversationID: c, maxWindows: 10)
+        let current = try s.memory.list().first { $0.attribute == "residence" }
+        XCTAssertTrue(current?.text.contains("Porto") ?? false)
+    }
+}

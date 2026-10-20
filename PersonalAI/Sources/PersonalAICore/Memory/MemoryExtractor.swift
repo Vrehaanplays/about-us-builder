@@ -144,6 +144,17 @@ public final class MemoryExtractor: @unchecked Sendable {
         return report
     }
 
+    /// The most recently active conversation with messages the extractor has not seen yet (watermarks live in `kv`, so this survives restarts).
+    public func pendingConversation() -> Int64? {
+        try? archive.db.read { r in
+            try r.queryOne("""
+                SELECT c.id FROM conversation c
+                WHERE CAST(COALESCE((SELECT value FROM kv WHERE key = 'extract.seq.' || c.id), '-1') AS INTEGER) < c.message_count - 1
+                ORDER BY c.updated_at DESC LIMIT 1
+                """) { $0.int(0) }
+        }
+    }
+
     static func date(_ t: Double) -> String {
         let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.timeZone = TimeZone(identifier: "UTC"); return f.string(from: Date(timeIntervalSince1970: t))
     }
