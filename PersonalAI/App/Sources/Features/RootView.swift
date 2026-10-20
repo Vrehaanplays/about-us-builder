@@ -1,4 +1,5 @@
 import SwiftUI
+import PersonalAICore
 
 struct RootView: View {
     @Environment(AppModel.self) private var app

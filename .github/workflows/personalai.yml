@@ -56,6 +56,14 @@ jobs:
         run: brew install xcodegen
       - name: Generate project
         run: xcodegen generate
+      - name: Restore build cache
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: PersonalAI/App/build/sim
+          key: ios-sim-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-${{ github.run_id }}
+          restore-keys: |
+            ios-sim-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-
       - name: Resolve packages
         run: xcodebuild -resolvePackageDependencies -project PersonalAIApp.xcodeproj -scheme PersonalAIApp | tail -20
       - name: Build for Simulator
@@ -77,6 +85,12 @@ jobs:
           APP=$(find build/device/Build/Products -maxdepth 2 -name "*.app" | head -1); echo "app: $APP"
           rm -rf ipa && mkdir -p ipa/Payload && cp -R "$APP" ipa/Payload/ && (cd ipa && zip -qry ../PersonalAI-unsigned.ipa Payload)
           ls -la PersonalAI-unsigned.ipa
+      - name: Save build cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: PersonalAI/App/build/sim
+          key: ios-sim-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-${{ github.run_id }}
       - name: Show errors
         if: failure()
         run: |

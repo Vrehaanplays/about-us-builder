@@ -125,7 +125,9 @@ struct ConversationReaderView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.palette) private var p
     @State private var msgs: [MessageRecord] = []
-    @State private var lo = 0, hi = 0, total = 0
+    @State private var lo = 0
+    @State private var hi = 0
+    @State private var total = 0
     @State private var title = ""
 
     var body: some View {
