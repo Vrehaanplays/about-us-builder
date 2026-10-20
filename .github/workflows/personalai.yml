@@ -14,6 +14,10 @@ on:
         description: "Also produce a signed build (requires the signing secrets documented in PersonalAI/docs/DISTRIBUTION.md)"
         type: boolean
         default: false
+      publish_release:
+        description: "Attach the unsigned .ipa to a public pre-release named personalai-latest (easier download than an Actions artifact)"
+        type: boolean
+        default: false
 
 concurrency:
   group: personalai-${{ github.ref }}
@@ -98,6 +102,8 @@ jobs:
     name: iOS app (unsigned Release build for a real iPhone, .ipa)
     runs-on: macos-26
     needs: [ macos-core ]
+    permissions:
+      contents: write
     defaults: { run: { working-directory: PersonalAI/App } }
     steps:
       - uses: actions/checkout@v4
@@ -135,6 +141,12 @@ jobs:
             PersonalAI/App/PersonalAI-unsigned.ipa
             PersonalAI/App/build-device.log
           if-no-files-found: warn
+      - name: Publish pre-release (only when asked)
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release view personalai-latest >/dev/null 2>&1 || gh release create personalai-latest --prerelease --title "Personal AI (latest CI build, unsigned)" --notes "Unsigned .ipa built by CI. Needs re-signing to install; see PersonalAI/docs/DISTRIBUTION.md. Not tested on a device." --target "$GITHUB_SHA"
+          gh release upload personalai-latest PersonalAI-unsigned.ipa --clobber
       - name: Report
         if: always()
         run: |
@@ -142,7 +154,7 @@ jobs:
           grep -E "\*\* BUILD (SUCCEEDED|FAILED)" build-device.log 2>/dev/null | tail -2 || true
           [ -f PersonalAI-unsigned.ipa ] && { ls -l PersonalAI-unsigned.ipa; shasum -a 256 PersonalAI-unsigned.ipa; } || echo "no ipa"
           APPDIR=$(ls -d ipa/Payload/*.app 2>/dev/null | head -1)
-          [ -n "$APPDIR" ] && { /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APPDIR/Info.plist"; /usr/bin/lipo -info "$APPDIR/PersonalAIApp"; ls "$APPDIR" | head -20; } || true
+          [ -n "$APPDIR" ] && { /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APPDIR/Info.plist"; /usr/bin/lipo -info "$APPDIR/PersonalAIApp"; echo "-- MLX shader bundle:"; find "$APPDIR/mlx-swift_Cmlx.bundle" -name "*.metallib" -exec ls -l {} \; ; } || true
           grep -E "error:" build-device.log 2>/dev/null | sed 's#/Users/runner/work/about-us-builder/about-us-builder/PersonalAI/App/##' | cut -c1-260 | awk '!s[$0]++' | head -30 || true
 
   testflight:

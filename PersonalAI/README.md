@@ -22,7 +22,7 @@ Package.swift            SwiftPM: PersonalAICore (portable), paibench, paieval, 
 Sources/PersonalAICore   archive · search · memory · retrieval · context · chat · models · eval
 Sources/paibench         scale + vector benchmark (Linux/macOS)
 Sources/paieval          end-to-end memory evaluation
-Tests/                   40+ tests (Linux and macOS)
+Tests/                   50 tests (Linux and macOS) + 8 app tests (Simulator)
 App/                     XcodeGen project.yml + SwiftUI app (iOS 17+)
 tools/embed_server.py    ONNX MiniLM server used only by the Linux evaluation
 docs/benchmarks/         raw JSON results

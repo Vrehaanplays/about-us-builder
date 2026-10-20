@@ -225,7 +225,6 @@ public final class HybridRetriever: @unchecked Sendable {
 
         // ---- features, gating ----
         let tr = DispatchTime.now()
-        if ProcessInfo.processInfo.environment["PAI_TRACE"] != nil { FileHandle.standardError.write(Data("  terms=\(plan.terms) rare=\(rare)\n".utf8)) }
         struct Scored { var c: Cand; var score: Double; var coverage: Double; var msgs: [MessageRecord] }
         var scored: [Scored] = []
         let now = context.now.timeIntervalSince1970
@@ -258,7 +257,6 @@ public final class HybridRetriever: @unchecked Sendable {
             scored.append(Scored(c: c, score: s, coverage: coverage, msgs: msgs))
         }
         scored.sort { $0.score > $1.score }
-        if ProcessInfo.processInfo.environment["PAI_TRACE"] != nil { for s in scored.prefix(8) { FileHandle.standardError.write(Data("  cand conv\(s.c.conv) \(s.c.lo)-\(s.c.hi) score=\(s.score) cov=\(s.coverage) ch=\(s.c.channels)\n".utf8)) } }
 
         // optional neural rerank of the head
         if let reranker, deep || scored.count > 3, !scored.isEmpty {
@@ -454,10 +452,8 @@ extension HybridRetriever {
             if msgs.count >= config.fineMaxTexts { break }
         }
         guard !msgs.isEmpty else { return [] }
-        if ProcessInfo.processInfo.environment["PAI_TRACE"] != nil { FileHandle.standardError.write(Data("fine: \(msgs.count) texts from \(vecHits.prefix(config.fineChunks).map { "\($0.1.firstSeq)-\($0.1.lastSeq)" })\n".utf8)) }
         let vs = try await embedder.embed(msgs.map { String($0.text.prefix(600)) }, kind: .document)
         let ranked = zip(msgs, vs).map { ($0, VectorMath.dot(qv, $1)) }.sorted { $0.1 > $1.1 }
-        if ProcessInfo.processInfo.environment["PAI_TRACE"] != nil { for r in ranked.prefix(3) { FileHandle.standardError.write(Data("  fine \(r.1) seq \(r.0.seq): \(r.0.text.prefix(50))\n".utf8)) } }
         return ranked.prefix(12).map { (msg: $0.0, score: $0.1) }
     }
 }
