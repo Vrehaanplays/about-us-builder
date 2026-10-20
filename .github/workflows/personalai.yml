@@ -61,18 +61,18 @@ jobs:
       - name: Build for Simulator
         run: |
           set -o pipefail
-          xcodebuild build-for-testing -project PersonalAIApp.xcodeproj -scheme PersonalAIApp -destination 'generic/platform=iOS Simulator' \
+          xcodebuild build-for-testing -skipMacroValidation -skipPackagePluginValidation -project PersonalAIApp.xcodeproj -scheme PersonalAIApp -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO -derivedDataPath build/sim 2>&1 | tee build-sim.log | tail -5
       - name: Unit tests on Simulator
         run: |
           set -o pipefail
           DEST=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if 'iPhone' in x['name']))")
-          xcodebuild test-without-building -project PersonalAIApp.xcodeproj -scheme PersonalAIApp -destination "id=$DEST" -derivedDataPath build/sim \
+          xcodebuild test-without-building -skipMacroValidation -project PersonalAIApp.xcodeproj -scheme PersonalAIApp -destination "id=$DEST" -derivedDataPath build/sim \
             -resultBundlePath build/tests.xcresult 2>&1 | tee test-sim.log | tail -25
       - name: Unsigned device build (.ipa for sideloading)
         run: |
           set -o pipefail
-          xcodebuild build -project PersonalAIApp.xcodeproj -scheme PersonalAIApp -configuration Release -destination 'generic/platform=iOS' \
+          xcodebuild build -skipMacroValidation -skipPackagePluginValidation -project PersonalAIApp.xcodeproj -scheme PersonalAIApp -configuration Release -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" -derivedDataPath build/device 2>&1 | tee build-device.log | tail -5
           APP=$(find build/device/Build/Products -maxdepth 2 -name "*.app" | head -1); echo "app: $APP"
           rm -rf ipa && mkdir -p ipa/Payload && cp -R "$APP" ipa/Payload/ && (cd ipa && zip -qry ../PersonalAI-unsigned.ipa Payload)
@@ -121,7 +121,7 @@ jobs:
           mkdir -p ~/private_keys && echo "$ASC_KEY_P8_BASE64" | base64 --decode > ~/private_keys/AuthKey_$ASC_KEY_ID.p8
           AUTH="-allowProvisioningUpdates -authenticationKeyPath $HOME/private_keys/AuthKey_$ASC_KEY_ID.p8 -authenticationKeyID $ASC_KEY_ID -authenticationKeyIssuerID $ASC_ISSUER_ID"
           BUILD=$(date +%y%m%d%H%M)
-          xcodebuild archive -project PersonalAIApp.xcodeproj -scheme PersonalAIApp -configuration Release -destination 'generic/platform=iOS' \
+          xcodebuild archive -skipMacroValidation -skipPackagePluginValidation -project PersonalAIApp.xcodeproj -scheme PersonalAIApp -configuration Release -destination 'generic/platform=iOS' \
             -archivePath build/PersonalAI.xcarchive CURRENT_PROJECT_VERSION=$BUILD $AUTH | tail -20
           cat > build/export.plist <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
