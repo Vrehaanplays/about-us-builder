@@ -80,8 +80,7 @@ actor MLXEngine: InferenceEngine {
         let tier = KVTier.choose(requested: params.maxKVSize ?? 8192, current: kvTier)
         let tierChanged = kvTier != nil && kvTier != tier
         kvTier = tier
-        var gp = GenerateParameters(maxTokens: params.maxTokens, maxKVSize: tier, kvBits: params.kvBits, temperature: params.temperature, topP: params.topP)
-        gp.prefill = PrefillParameters()
+        let gp = GenerateParameters(maxTokens: params.maxTokens, maxKVSize: tier, kvBits: params.kvBits, temperature: params.temperature, topP: params.topP)
         let additional: [String: any Sendable] = ["enable_thinking": false]
         let chat: ChatSession
         if let s = session, !tierChanged {

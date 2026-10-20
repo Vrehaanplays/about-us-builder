@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import PersonalAICore
 
 struct ModelsView: View {
@@ -104,7 +105,7 @@ struct ModelCard: View {
         case .installed:
             VStack(alignment: .leading, spacing: 8) {
                 if !isActive {
-                    Button { Task { spec.role == .chat ? await app.loadChatModel(spec.id) : await app.loadEmbedder(spec.id) } } label: { Text(spec.role == .chat ? "Use this model" : "Use for search") }
+                    Button { Task { if spec.role == .chat { await app.loadChatModel(spec.id) } else { await app.loadEmbedder(spec.id) } } } label: { Text(spec.role == .chat ? "Use this model" : "Use for search") }
                         .buttonStyle(LipButtonStyle(kind: .lime)).disabled(app.engineStatus != nil)
                 } else if spec.role == .chat {
                     Button { Task { await app.unloadChatModel() } } label: { Text("Unload from memory") }.buttonStyle(LipButtonStyle(kind: .outline))

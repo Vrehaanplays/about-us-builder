@@ -6,8 +6,8 @@ import PersonalAICore
 struct LibraryView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.palette) private var p
-    @State private var showImporter = false
-    @State private var showFolder = false
+    @State private var pickerMode: PickerMode?
+    enum PickerMode { case export, folder }
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var mediaStatus: String?
     @State private var confirmErase = false
@@ -28,11 +28,11 @@ struct LibraryView: View {
                 .padding(.horizontal, PB.margin).padding(.top, 8).padding(.bottom, 32)
             }
             .scene().toolbar(.hidden, for: .navigationBar)
-            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json, .zip, .folder, .plainText], allowsMultipleSelection: false) { r in
-                if case .success(let urls) = r, let u = urls.first { app.importFile(u) }
-            }
-            .fileImporter(isPresented: $showFolder, allowedContentTypes: [.folder], allowsMultipleSelection: false) { r in
-                if case .success(let urls) = r, let u = urls.first { indexFolder(u) }
+            .fileImporter(isPresented: .init(get: { pickerMode != nil }, set: { if !$0 { pickerMode = nil } }),
+                          allowedContentTypes: pickerMode == .folder ? [.folder] : [.json, .zip, .folder, .plainText], allowsMultipleSelection: false) { r in
+                let mode = pickerMode; pickerMode = nil
+                guard case .success(let urls) = r, let u = urls.first else { return }
+                if mode == .folder { indexFolder(u) } else { app.importFile(u) }
             }
             .onChange(of: photoItems) { _, items in if !items.isEmpty { indexPhotos(items) } }
             .alert("Rebuild the search index?", isPresented: $confirmRebuild) {
@@ -87,7 +87,7 @@ struct LibraryView: View {
                     }
                 }
             }
-            Button { showImporter = true } label: { Text("Choose export…") }.buttonStyle(LipButtonStyle(kind: .primary))
+            Button { pickerMode = .export } label: { Text("Choose export…") }.buttonStyle(LipButtonStyle(kind: .primary))
         }.frame(maxWidth: .infinity, alignment: .leading).card()
     }
 
@@ -97,7 +97,7 @@ struct LibraryView: View {
             Text("Pick the photos or a folder you want searchable. Text in images and what they show are read on this phone with Apple's Vision. Only what you pick is indexed; nothing else in Photos or Files is touched.").font(PBFont.body).foregroundStyle(p.sub)
             PhotosPicker(selection: $photoItems, maxSelectionCount: 100, matching: .images, photoLibrary: .shared()) { Text("Choose photos…") }
                 .buttonStyle(LipButtonStyle(kind: .outline))
-            Button { showFolder = true } label: { Text("Choose a folder…") }.buttonStyle(LipButtonStyle(kind: .outline))
+            Button { pickerMode = .folder } label: { Text("Choose a folder…") }.buttonStyle(LipButtonStyle(kind: .outline))
             if let m = mediaStatus { Text(m).font(PBFont.meta).foregroundStyle(p.sub) }
             Text("Photos and files are found by their words, labels, names and dates. They are not yet searched by meaning.").font(PBFont.meta).foregroundStyle(p.sub)
         }.frame(maxWidth: .infinity, alignment: .leading).card()

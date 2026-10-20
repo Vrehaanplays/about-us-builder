@@ -2,12 +2,16 @@ import SwiftUI
 
 /// Visual language from the Playbook "Loud" system: one heavy grotesque, flat saturated scenes, lime/coral/violet accents,
 /// buttons that sit on a solid lip, everything that moves springs. Dark mode is the black scene with lime as the accent.
+enum PBHex {
+    static let lime: UInt32 = 0xC6F432, coral: UInt32 = 0xFF5B2E, violet: UInt32 = 0x6E4CFF, cream: UInt32 = 0xF2EFE6, ink: UInt32 = 0x111111, white: UInt32 = 0xFFFFFF
+}
+
 enum PB {
-    static let lime = Color(hex: 0xC6F432)
-    static let coral = Color(hex: 0xFF5B2E)
-    static let violet = Color(hex: 0x6E4CFF)
-    static let cream = Color(hex: 0xF2EFE6)
-    static let ink = Color(hex: 0x111111)
+    static let lime = Color(hex: PBHex.lime)
+    static let coral = Color(hex: PBHex.coral)
+    static let violet = Color(hex: PBHex.violet)
+    static let cream = Color(hex: PBHex.cream)
+    static let ink = Color(hex: PBHex.ink)
 
     // Playbook motion tokens (stiffness / damping)
     static let bouncy = Animation.interpolatingSpring(stiffness: 300, damping: 16)
