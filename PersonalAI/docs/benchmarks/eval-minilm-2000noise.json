@@ -1,22 +1,22 @@
 {
   "abstainRate" : 1,
   "allGoldRate" : 0.9714285714285714,
-  "answerRate" : 0.8,
+  "answerRate" : 0.9142857142857143,
   "byCategory" : {
     "abstain" : 1,
     "conflict" : 1,
-    "correction" : 0,
+    "correction" : 1,
     "cross-chat" : 1,
-    "date-range" : 0,
+    "date-range" : 1,
     "exact" : 1,
-    "heldout" : 0.9285714285714286,
+    "heldout" : 1,
     "heldout2" : 0.6666666666666666,
     "identifier" : 1,
     "name" : 1,
     "name-ambiguity" : 1,
     "old-conversation" : 1,
     "paraphrase" : 1,
-    "recency" : 0
+    "recency" : 1
   },
   "cases" : [
     {
@@ -30,7 +30,7 @@
       "id" : "floor-exact",
       "passed" : true,
       "query" : "what did the supplier quote for the oak herringbone floor",
-      "retrievalMillis" : 366.24860763549805,
+      "retrievalMillis" : 371.8761205673218,
       "windowRespected" : true
     },
     {
@@ -44,7 +44,7 @@
       "id" : "floor-para",
       "passed" : true,
       "query" : "how much was the estimate for the wooden flooring in the cooking area",
-      "retrievalMillis" : 397.9196548461914,
+      "retrievalMillis" : 369.86327171325684,
       "windowRespected" : true
     },
     {
@@ -58,7 +58,7 @@
       "id" : "defense-para",
       "passed" : true,
       "query" : "when and where is my thesis committee gathering",
-      "retrievalMillis" : 293.4046983718872,
+      "retrievalMillis" : 263.309121131897,
       "windowRespected" : true
     },
     {
@@ -72,7 +72,7 @@
       "id" : "allergy-para",
       "passed" : true,
       "query" : "which tree nuts should recipes for me avoid",
-      "retrievalMillis" : 54.47721481323242,
+      "retrievalMillis" : 57.57629871368408,
       "windowRespected" : true
     },
     {
@@ -86,7 +86,7 @@
       "id" : "dentist-para",
       "passed" : true,
       "query" : "when do I have to see the tooth doctor",
-      "retrievalMillis" : 52.83999443054199,
+      "retrievalMillis" : 46.315789222717285,
       "windowRespected" : true
     },
     {
@@ -100,7 +100,7 @@
       "id" : "car-old",
       "passed" : true,
       "query" : "what was the first vehicle I ever owned",
-      "retrievalMillis" : 52.536964416503906,
+      "retrievalMillis" : 46.585917472839355,
       "windowRespected" : true
     },
     {
@@ -114,7 +114,7 @@
       "id" : "locker",
       "passed" : true,
       "query" : "what's the combination for my gym locker",
-      "retrievalMillis" : 54.59558963775635,
+      "retrievalMillis" : 46.22149467468262,
       "windowRespected" : true
     },
     {
@@ -128,7 +128,7 @@
       "id" : "trip-cross",
       "passed" : true,
       "query" : "what arrangements have I made so far for the Portugal holiday",
-      "retrievalMillis" : 186.5994930267334,
+      "retrievalMillis" : 197.77154922485352,
       "windowRespected" : true
     },
     {
@@ -142,49 +142,49 @@
       "id" : "floor-continue",
       "passed" : true,
       "query" : "back to the flooring: which wood did we pick and what did it cost",
-      "retrievalMillis" : 360.38804054260254,
+      "retrievalMillis" : 386.1246109008789,
       "windowRespected" : true
     },
     {
       "allGoldFound" : true,
-      "answer" : "I don't have anything in your history about that.",
-      "answerSupported" : false,
+      "answer" : "Ran my 10k today in 52 minutes, felt heavy. [E1]",
+      "answerSupported" : true,
       "category" : "date-range",
       "citationsValid" : true,
       "confidence" : "good",
       "goldRank" : 1,
       "id" : "run-jan",
-      "passed" : false,
+      "passed" : true,
       "query" : "how fast was my 10k in January 2025",
-      "retrievalMillis" : 38.184285163879395,
+      "retrievalMillis" : 45.67611217498779,
       "windowRespected" : true
     },
     {
       "allGoldFound" : true,
-      "answer" : "I don't have anything in your history about that.",
-      "answerSupported" : false,
+      "answer" : "Ran the 10k in 47 minutes this morning, a new personal record. [E1]",
+      "answerSupported" : true,
       "category" : "recency",
       "citationsValid" : true,
       "confidence" : "good",
       "goldRank" : 1,
       "id" : "run-latest",
-      "passed" : false,
+      "passed" : true,
       "query" : "what's my most recent 10k time",
-      "retrievalMillis" : 42.1299934387207,
+      "retrievalMillis" : 44.590115547180176,
       "windowRespected" : true
     },
     {
       "allGoldFound" : true,
-      "answer" : "I don't have anything in your history about that.",
-      "answerSupported" : false,
+      "answer" : "Big news, I just started a new job. I work at Helix Robotics now. [E1]",
+      "answerSupported" : true,
       "category" : "correction",
       "citationsValid" : true,
       "confidence" : "good",
       "goldRank" : 1,
       "id" : "job-now",
-      "passed" : false,
+      "passed" : true,
       "query" : "where do I work",
-      "retrievalMillis" : 34.5149040222168,
+      "retrievalMillis" : 47.07658290863037,
       "windowRespected" : true
     },
     {
@@ -198,7 +198,7 @@
       "id" : "spice-now",
       "passed" : true,
       "query" : "do I like spicy food",
-      "retrievalMillis" : 45.827507972717285,
+      "retrievalMillis" : 74.34773445129395,
       "windowRespected" : true
     },
     {
@@ -212,7 +212,7 @@
       "id" : "priya",
       "passed" : true,
       "query" : "which book did Priya suggest",
-      "retrievalMillis" : 36.49628162384033,
+      "retrievalMillis" : 58.34174156188965,
       "windowRespected" : true
     },
     {
@@ -226,7 +226,7 @@
       "id" : "alex-bro",
       "passed" : true,
       "query" : "what did my brother Alex ask me to do",
-      "retrievalMillis" : 36.29040718078613,
+      "retrievalMillis" : 54.9168586730957,
       "windowRespected" : true
     },
     {
@@ -240,7 +240,7 @@
       "id" : "alex-work",
       "passed" : true,
       "query" : "what does Alex from work keep changing",
-      "retrievalMillis" : 90.00980854034424,
+      "retrievalMillis" : 118.30389499664307,
       "windowRespected" : true
     },
     {
@@ -254,7 +254,7 @@
       "id" : "abstain-passport",
       "passed" : true,
       "query" : "what is my passport number",
-      "retrievalMillis" : 38.083553314208984,
+      "retrievalMillis" : 38.00702095031738,
       "windowRespected" : true
     },
     {
@@ -268,7 +268,7 @@
       "id" : "abstain-sister",
       "passed" : true,
       "query" : "what did I say about my sister's wedding",
-      "retrievalMillis" : 62.09826469421387,
+      "retrievalMillis" : 54.808735847473145,
       "windowRespected" : true
     },
     {
@@ -282,7 +282,7 @@
       "id" : "h-car-price",
       "passed" : true,
       "query" : "how much did I pay for my first car",
-      "retrievalMillis" : 43.44332218170166,
+      "retrievalMillis" : 44.38519477844238,
       "windowRespected" : true
     },
     {
@@ -296,7 +296,7 @@
       "id" : "h-hotel-rate",
       "passed" : true,
       "query" : "which hotel am I staying at in Lisbon and what is the nightly rate",
-      "retrievalMillis" : 161.2999439239502,
+      "retrievalMillis" : 175.51934719085693,
       "windowRespected" : true
     },
     {
@@ -310,12 +310,12 @@
       "id" : "h-alex-deadline",
       "passed" : true,
       "query" : "when does Alex at the office need the presentation",
-      "retrievalMillis" : 287.1072292327881,
+      "retrievalMillis" : 345.78561782836914,
       "windowRespected" : true
     },
     {
       "allGoldFound" : true,
-      "answer" : "Summarise the best day trips from the city by train. (second thought, later.) [E1] Ran the 10k in 47 minutes this morning, a new personal record. [E2]",
+      "answer" : "Summarise the best day trips from the city by train. Thanks. [E4] Ran the 10k in 47 minutes this morning, a new personal record. [E2]",
       "answerSupported" : true,
       "category" : "heldout",
       "citationsValid" : true,
@@ -324,7 +324,7 @@
       "id" : "h-best-run",
       "passed" : true,
       "query" : "what is my best time over ten kilometres",
-      "retrievalMillis" : 155.5997133255005,
+      "retrievalMillis" : 122.92027473449707,
       "windowRespected" : true
     },
     {
@@ -338,7 +338,7 @@
       "id" : "h-food-avoid",
       "passed" : true,
       "query" : "which ingredient should never be served to me",
-      "retrievalMillis" : 92.76711940765381,
+      "retrievalMillis" : 81.83062076568604,
       "windowRespected" : true
     },
     {
@@ -352,7 +352,7 @@
       "id" : "h-employer",
       "passed" : true,
       "query" : "who is my current employer",
-      "retrievalMillis" : 41.62180423736572,
+      "retrievalMillis" : 41.246891021728516,
       "windowRespected" : true
     },
     {
@@ -366,21 +366,21 @@
       "id" : "h-chilli",
       "passed" : true,
       "query" : "can I eat hot chilli dishes these days",
-      "retrievalMillis" : 60.07254123687744,
+      "retrievalMillis" : 44.7162389755249,
       "windowRespected" : true
     },
     {
       "allGoldFound" : true,
-      "answer" : "Dentist appointment is on 3 October at 9:30. [E1]",
-      "answerSupported" : false,
+      "answer" : "Reminder to self: the committee meeting got moved to the 14th of November at 3pm in room B204. [E4]",
+      "answerSupported" : true,
       "category" : "heldout",
       "citationsValid" : true,
       "confidence" : "good",
       "goldRank" : 4,
       "id" : "h-committee",
-      "passed" : false,
+      "passed" : true,
       "query" : "what day does the committee meet and in which room",
-      "retrievalMillis" : 127.87759304046631,
+      "retrievalMillis" : 126.82342529296875,
       "windowRespected" : true
     },
     {
@@ -394,7 +394,7 @@
       "id" : "h-airline",
       "passed" : true,
       "query" : "which airline did I fly with for the Portugal trip",
-      "retrievalMillis" : 69.87965106964111,
+      "retrievalMillis" : 71.92254066467285,
       "windowRespected" : true
     },
     {
@@ -408,7 +408,7 @@
       "id" : "h-reading",
       "passed" : true,
       "query" : "what did Priya want the group to read",
-      "retrievalMillis" : 298.56371879577637,
+      "retrievalMillis" : 357.83863067626953,
       "windowRespected" : true
     },
     {
@@ -422,7 +422,7 @@
       "id" : "h-floor-fit",
       "passed" : true,
       "query" : "what did the oak floor cost with installation",
-      "retrievalMillis" : 345.14617919921875,
+      "retrievalMillis" : 357.7522039413452,
       "windowRespected" : true
     },
     {
@@ -436,7 +436,7 @@
       "id" : "h-dentist-time",
       "passed" : true,
       "query" : "what time is my dental appointment in October",
-      "retrievalMillis" : 70.76025009155273,
+      "retrievalMillis" : 74.36811923980713,
       "windowRespected" : true
     },
     {
@@ -450,7 +450,7 @@
       "id" : "h-abstain-mother",
       "passed" : true,
       "query" : "what is my mother's birthday",
-      "retrievalMillis" : 29.902338981628418,
+      "retrievalMillis" : 29.538750648498535,
       "windowRespected" : true
     },
     {
@@ -464,7 +464,7 @@
       "id" : "h-abstain-steps",
       "passed" : true,
       "query" : "how many steps did I walk yesterday",
-      "retrievalMillis" : 30.606627464294434,
+      "retrievalMillis" : 33.0733060836792,
       "windowRespected" : true
     },
     {
@@ -478,7 +478,7 @@
       "id" : "g-moved",
       "passed" : true,
       "query" : "which city is my brother relocating to",
-      "retrievalMillis" : 39.28852081298828,
+      "retrievalMillis" : 51.00667476654053,
       "windowRespected" : true
     },
     {
@@ -492,7 +492,7 @@
       "id" : "g-vehicle-colour",
       "passed" : true,
       "query" : "what colour was the car I started out with",
-      "retrievalMillis" : 36.57424449920654,
+      "retrievalMillis" : 37.682414054870605,
       "windowRespected" : true
     },
     {
@@ -506,7 +506,7 @@
       "id" : "g-gym",
       "passed" : true,
       "query" : "I forgot the number for the changing room cabinet at the gym",
-      "retrievalMillis" : 399.4710445404053,
+      "retrievalMillis" : 326.29430294036865,
       "windowRespected" : true
     },
     {
@@ -520,7 +520,7 @@
       "id" : "g-spring",
       "passed" : false,
       "query" : "when am I flying out in the spring",
-      "retrievalMillis" : 37.51182556152344,
+      "retrievalMillis" : 40.064215660095215,
       "windowRespected" : true
     },
     {
@@ -533,7 +533,7 @@
       "id" : "g-reno-budget",
       "passed" : false,
       "query" : "remind me what the kitchen floor is going to set me back",
-      "retrievalMillis" : 358.2162857055664,
+      "retrievalMillis" : 325.4283666610718,
       "windowRespected" : true
     },
     {
@@ -547,7 +547,7 @@
       "id" : "g-slow-run",
       "passed" : false,
       "query" : "how long did the run take me at the start of the year",
-      "retrievalMillis" : 171.12195491790771,
+      "retrievalMillis" : 170.3500747680664,
       "windowRespected" : true
     },
     {
@@ -561,7 +561,7 @@
       "id" : "g-novel",
       "passed" : true,
       "query" : "name of the novel my friend suggested for our reading circle",
-      "retrievalMillis" : 148.57709407806396,
+      "retrievalMillis" : 128.10862064361572,
       "windowRespected" : true
     },
     {
@@ -575,7 +575,7 @@
       "id" : "g-pet",
       "passed" : true,
       "query" : "what is my dog called",
-      "retrievalMillis" : 43.85256767272949,
+      "retrievalMillis" : 31.304478645324707,
       "windowRespected" : true
     },
     {
@@ -589,20 +589,20 @@
       "id" : "g-bank",
       "passed" : true,
       "query" : "what is the pin for my bank card",
-      "retrievalMillis" : 44.33846473693848,
+      "retrievalMillis" : 32.56356716156006,
       "windowRespected" : true
     }
   ],
   "embedder" : "minilm-l6-v2-onnx",
   "heldOut2PassRate" : 0.6666666666666666,
-  "heldOutPassRate" : 0.9285714285714286,
+  "heldOutPassRate" : 1,
   "hitAt1" : 0.8285714285714286,
   "hitAt3" : 0.9428571428571428,
-  "importSeconds" : 0.9598060846328735,
-  "indexSeconds" : 31.29220712184906,
+  "importSeconds" : 0.8398556709289551,
+  "indexSeconds" : 30.99810767173767,
   "mrr" : 0.888095238095238,
   "noiseMessages" : 2000,
   "realEmbedder" : true,
   "totalMessages" : 3859,
-  "tunedPassRate" : 0.8333333333333334
+  "tunedPassRate" : 1
 }

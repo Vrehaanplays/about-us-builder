@@ -26,7 +26,7 @@ public struct ExtractiveAnswerer: Sendable {
         for c in prompt.citations {
             if let mid = c.memoryID, let rm = r.memories.first(where: { $0.memory.id == mid }) {
                 raw.append((rm.memory.text, c.id, rm.memory.validFrom ?? 0, true))
-            } else if c.id.hasPrefix("E"), let span = r.spans.first(where: { $0.anchorMessageIDs == c.messageIDs && $0.conversationID == c.conversationID }) {
+            } else if c.id.hasPrefix("E"), let span = r.spans.first(where: { $0.anchorMessageIDs == c.anchorMessageIDs && $0.conversationID == c.conversationID }) {
                 for m in span.messages where m.role == .user && span.outdated == nil {
                     for s in (m.text.count <= 220 ? [m.text] : Self.sentences(m.text)) { raw.append((s, c.id, m.createdAt, false)) }
                 }
