@@ -60,7 +60,9 @@ jobs:
         id: cache
         uses: actions/cache/restore@v4
         with:
-          path: PersonalAI/App/build/sim
+          path: |
+            PersonalAI/App/build/sim
+            PersonalAI/App/build/device
           key: ios-sim-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-${{ github.run_id }}
           restore-keys: |
             ios-sim-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-
@@ -89,7 +91,9 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: PersonalAI/App/build/sim
+          path: |
+            PersonalAI/App/build/sim
+            PersonalAI/App/build/device
           key: ios-sim-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-${{ github.run_id }}
       - uses: actions/upload-artifact@v4
         if: always()

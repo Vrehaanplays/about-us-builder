@@ -42,6 +42,7 @@ struct ModelCard: View {
     @Environment(AppModel.self) private var app
     @Environment(\.palette) private var p
     @State private var confirmRemove = false
+    @State private var fitWarning: String?
 
     private var state: ModelState { app.modelStates[spec.id] ?? .notInstalled }
     private var isActive: Bool { spec.role == .chat ? app.loadedChatModelID == spec.id : app.loadedEmbedderID == spec.id }
@@ -66,6 +67,10 @@ struct ModelCard: View {
             controls
         }
         .frame(maxWidth: .infinity, alignment: .leading).card()
+        .alert("Low on memory", isPresented: .init(get: { fitWarning != nil }, set: { if !$0 { fitWarning = nil } })) {
+            Button("Load anyway", role: .destructive) { Task { await app.loadChatModel(spec.id) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text(fitWarning ?? "") }
         .alert("Remove \(spec.displayName)?", isPresented: $confirmRemove) {
             Button("Remove", role: .destructive) { Task { await app.removeModel(spec.id) } }
             Button("Cancel", role: .cancel) {}
@@ -105,7 +110,7 @@ struct ModelCard: View {
         case .installed:
             VStack(alignment: .leading, spacing: 8) {
                 if !isActive {
-                    Button { Task { if spec.role == .chat { await app.loadChatModel(spec.id) } else { await app.loadEmbedder(spec.id) } } } label: { Text(spec.role == .chat ? "Use this model" : "Use for search") }
+                    Button { if let w = app.memoryWarning(for: spec.id) { fitWarning = w } else { Task { if spec.role == .chat { await app.loadChatModel(spec.id) } else { await app.loadEmbedder(spec.id) } } } } label: { Text(spec.role == .chat ? "Use this model" : "Use for search") }
                         .buttonStyle(LipButtonStyle(kind: .lime)).disabled(app.engineStatus != nil)
                 } else if spec.role == .chat {
                     Button { Task { await app.unloadChatModel() } } label: { Text("Unload from memory") }.buttonStyle(LipButtonStyle(kind: .outline))

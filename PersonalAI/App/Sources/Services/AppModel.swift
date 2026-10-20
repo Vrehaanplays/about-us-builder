@@ -60,7 +60,7 @@ final class AppModel {
             services = svc
             let store = ModelStore(root: modelsDir, transport: transport, freeSpace: { DeviceInfo.freeDiskBytes })
             modelStore = store
-            observerID = await store.observe { [weak self] id, state in Task { @MainActor in self?.modelStates[id] = state } }
+            observerID = await store.observe { [weak self] id, state in Task { @MainActor in self?.modelStates[id] = state; self?.modelStateChanged(id, state) } }
             for spec in ModelCatalog.all { modelStates[spec.id] = await store.state(of: spec.id) }
 
             let profileBox = self.profileBox
@@ -75,6 +75,25 @@ final class AppModel {
         } catch {
             boot = .failed(error.localizedDescription)
         }
+    }
+
+    /// First-time convenience: when a download finishes and nothing of that kind is loaded yet, load it. Never swaps a model you already chose.
+    private func modelStateChanged(_ id: String, _ state: ModelState) {
+        guard case .installed = state, let spec = ModelCatalog.spec(id) else { refreshStorage(); return }
+        refreshStorage()
+        Task {
+            if spec.role == .embedder, loadedEmbedderID == nil { await loadEmbedder(id) }
+            if spec.role == .chat, loadedChatModelID == nil, engineStatus == nil { await loadChatModel(id) }
+        }
+    }
+
+    /// Plain-language fit check before loading. Uses the live per-app memory headroom from iOS, not the phone's RAM.
+    func memoryWarning(for id: String) -> String? {
+        guard let spec = ModelCatalog.spec(id), spec.role == .chat, case .installed(let bytes) = modelStates[id] ?? .notInstalled else { return nil }
+        let need = Int(Double(bytes) * 1.1) + 600 * 1024 * 1024        // weights + working buffers + app
+        let have = DeviceInfo.availableMemoryBytes
+        guard need > have else { return nil }
+        return "\(spec.displayName) needs about \(ByteCountFormatter.string(Int64(need))) of memory, and iOS currently allows this app about \(ByteCountFormatter.string(Int64(have))). It may be closed by iOS while loading or answering. A smaller model is safer."
     }
 
     private func autoLoadModels() async {
