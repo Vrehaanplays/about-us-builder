@@ -187,6 +187,7 @@ public final class ArchiveStore: @unchecked Sendable {
                     let remaining = try w.scalarInt("SELECT COUNT(*) FROM memory_evidence WHERE memory_id=? AND role='supports'", [.int(m)])
                     let createdBy = try w.queryOne("SELECT created_by FROM memory WHERE id=?", [.int(m)]) { $0.text(0) } ?? ""
                     if remaining == 0 && createdBy != "user" {
+                        try w.run("UPDATE memory SET supersedes=NULL WHERE supersedes=?", [.int(m)])
                         try w.run("DELETE FROM memory WHERE id=?", [.int(m)])
                         try w.run("INSERT INTO memory_event(memory_id,at,action,actor,detail) VALUES(?,?,?,?,?)",
                                   [.int(m), .double(Clock.now()), .text("source_erased"), .text("user"), .text("all supporting evidence erased")])
