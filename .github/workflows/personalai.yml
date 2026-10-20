@@ -42,8 +42,8 @@ jobs:
           X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1); echo "Using $X"; sudo xcode-select -s "$X"; xcodebuild -version; swift --version
       - run: swift test --skip EndToEndTests/testNeuralPipelineMeetsRetrievalFloors
 
-  ios-app:
-    name: iOS app (build + unit tests on Simulator, unsigned device build)
+  ios-sim:
+    name: iOS app (Simulator build + unit tests)
     runs-on: macos-26
     needs: [ macos-core ]
     defaults: { run: { working-directory: PersonalAI/App } }
@@ -52,22 +52,15 @@ jobs:
       - name: Select newest Xcode
         run: |
           X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1); echo "Using $X"; sudo xcode-select -s "$X"; xcodebuild -version
-      - name: Install XcodeGen
-        run: brew install xcodegen
-      - name: Generate project
-        run: xcodegen generate
+      - run: brew install xcodegen
+      - run: xcodegen generate
       - name: Restore build cache
-        id: cache
         uses: actions/cache/restore@v4
         with:
-          path: |
-            PersonalAI/App/build/sim
-            PersonalAI/App/build/device
+          path: PersonalAI/App/build/sim
           key: ios-sim-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-${{ github.run_id }}
           restore-keys: |
             ios-sim-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-
-      - name: Resolve packages
-        run: xcodebuild -resolvePackageDependencies -project PersonalAIApp.xcodeproj -scheme PersonalAIApp | tail -20
       - name: Build for Simulator
         run: |
           set -o pipefail
@@ -79,7 +72,48 @@ jobs:
           DEST=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if 'iPhone' in x['name']))")
           xcodebuild test-without-building -skipMacroValidation -project PersonalAIApp.xcodeproj -scheme PersonalAIApp -destination "id=$DEST" -derivedDataPath build/sim \
             -resultBundlePath build/tests.xcresult 2>&1 | tee test-sim.log | tail -25
-      - name: Unsigned device build (.ipa for sideloading)
+      - name: Save build cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: PersonalAI/App/build/sim
+          key: ios-sim-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: personalai-sim-logs
+          path: |
+            PersonalAI/App/*.log
+            PersonalAI/App/build/tests.xcresult
+          if-no-files-found: warn
+      - name: Report
+        if: always()
+        run: |
+          echo "=== REPORT (simulator) ==="
+          grep -E "Executed [0-9]+ tests?, with|\*\* TEST (SUCCEEDED|FAILED)" test-sim.log 2>/dev/null | tail -3 || true
+          grep -E "\*\* (TEST )?BUILD (SUCCEEDED|FAILED)" build-sim.log 2>/dev/null | tail -2 || true
+          for f in build-sim.log test-sim.log; do [ -f $f ] && grep -E "error:|Test Case .* failed|XCTAssert" $f | sed 's#/Users/runner/work/about-us-builder/about-us-builder/PersonalAI/App/##' | cut -c1-260 | awk '!s[$0]++' | head -30; done; true
+
+  ios-device:
+    name: iOS app (unsigned Release build for a real iPhone, .ipa)
+    runs-on: macos-26
+    needs: [ macos-core ]
+    defaults: { run: { working-directory: PersonalAI/App } }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest Xcode
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1); echo "Using $X"; sudo xcode-select -s "$X"; xcodebuild -version
+      - run: brew install xcodegen
+      - run: xcodegen generate
+      - name: Restore build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: PersonalAI/App/build/device
+          key: ios-device-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-${{ github.run_id }}
+          restore-keys: |
+            ios-device-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-
+      - name: Unsigned device build
         run: |
           set -o pipefail
           xcodebuild build -skipMacroValidation -skipPackagePluginValidation -project PersonalAIApp.xcodeproj -scheme PersonalAIApp -configuration Release -destination 'generic/platform=iOS' \
@@ -91,37 +125,31 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: |
-            PersonalAI/App/build/sim
-            PersonalAI/App/build/device
-          key: ios-sim-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-${{ github.run_id }}
+          path: PersonalAI/App/build/device
+          key: ios-device-${{ hashFiles('PersonalAI/App/project.yml', 'PersonalAI/Package.swift') }}-${{ github.run_id }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: personalai-ios
           path: |
             PersonalAI/App/PersonalAI-unsigned.ipa
-            PersonalAI/App/*.log
-            PersonalAI/App/build/tests.xcresult
+            PersonalAI/App/build-device.log
           if-no-files-found: warn
-      - name: Report (always last, so the log tail is the summary)
+      - name: Report
         if: always()
         run: |
-          echo "=== REPORT ==="
-          grep -E "Executed [0-9]+ tests?, with|Test Suite 'All tests'|\*\* TEST (SUCCEEDED|FAILED)" test-sim.log 2>/dev/null | tail -4 || true
-          grep -E "\*\* (TEST )?BUILD (SUCCEEDED|FAILED)" build-sim.log build-device.log 2>/dev/null | tail -4 || true
-          [ -f PersonalAI-unsigned.ipa ] && { ls -l PersonalAI-unsigned.ipa; shasum -a 256 PersonalAI-unsigned.ipa; unzip -l PersonalAI-unsigned.ipa | tail -1; } || echo "no ipa"
-          [ -d ipa/Payload ] && /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" ipa/Payload/*.app/Info.plist && lipo -info ipa/Payload/*.app/PersonalAIApp || true
-      - name: Show errors (compact)
-        if: failure()
-        run: |
-          for f in build-sim.log test-sim.log build-device.log; do [ -f $f ] && { echo "=== $f"; grep -E "error:|Cycle|\*\* .* FAILED|Test Case .* failed|XCTAssert" $f | sed 's#/Users/runner/work/about-us-builder/about-us-builder/PersonalAI/App/##' | cut -c1-260 | awk '!s[$0]++' | head -40; }; done; true
+          echo "=== REPORT (device) ==="
+          grep -E "\*\* BUILD (SUCCEEDED|FAILED)" build-device.log 2>/dev/null | tail -2 || true
+          [ -f PersonalAI-unsigned.ipa ] && { ls -l PersonalAI-unsigned.ipa; shasum -a 256 PersonalAI-unsigned.ipa; } || echo "no ipa"
+          APPDIR=$(ls -d ipa/Payload/*.app 2>/dev/null | head -1)
+          [ -n "$APPDIR" ] && { /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APPDIR/Info.plist"; /usr/bin/lipo -info "$APPDIR/PersonalAIApp"; ls "$APPDIR" | head -20; } || true
+          grep -E "error:" build-device.log 2>/dev/null | sed 's#/Users/runner/work/about-us-builder/about-us-builder/PersonalAI/App/##' | cut -c1-260 | awk '!s[$0]++' | head -30 || true
 
   testflight:
     name: Signed build → TestFlight (needs a paid Apple Developer account + secrets)
     if: github.event_name == 'workflow_dispatch' && inputs.sign
     runs-on: macos-26
-    needs: [ ios-app ]
+    needs: [ ios-sim, ios-device ]
     defaults: { run: { working-directory: PersonalAI/App } }
     env:
       TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

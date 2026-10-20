@@ -45,10 +45,19 @@ public final class AssetStore: @unchecked Sendable {
     public let db: ArchiveDatabase
     public init(db: ArchiveDatabase) { self.db = db }
 
+    /// Many assets in one transaction (a photo import is thousands of rows; one fsync per row would be needlessly slow).
+    public func upsertMany(sourceID: Int64, _ assets: [NewAsset]) throws {
+        try db.write { w in try w.transaction { for a in assets { _ = try upsert(in: w, sourceID: sourceID, a) } } }
+    }
+
     @discardableResult
     public func upsert(sourceID: Int64, _ a: NewAsset) throws -> Int64 {
-        try db.write { w in
-            try w.transaction {
+        try db.write { w in try upsert(in: w, sourceID: sourceID, a) }
+    }
+
+    func upsert(in w: SQLiteDatabase, sourceID: Int64, _ a: NewAsset) throws -> Int64 {
+        do {
+            return try w.transaction {
                 if let id = try w.queryOne("SELECT id FROM asset WHERE source_id=? AND external_id=?", [.int(sourceID), .text(a.externalID)], { $0.int(0) }) {
                     try w.run("""
                         UPDATE asset SET name=COALESCE(?,name), mime=COALESCE(?,mime), created_at=COALESCE(?,created_at),

@@ -17,6 +17,8 @@ final class BenchmarkRunner {
         var prefixReuse: [String: Double] = [:]
         var sustained: [String: Double] = [:]
         var embedder: [String: Double] = [:]
+        var retrievalQuality: [String: Double] = [:]
+        var retrievalByCategory: [String: Double] = [:]
         var archive: [[String: Double]] = []
         var notes: [String] = []
     }
@@ -34,7 +36,7 @@ final class BenchmarkRunner {
         guard !running else { return }
         running = true; report = nil; reportURL = nil; fraction = 0
         steps = [Step(title: "Device snapshot"), Step(title: "Model load"), Step(title: "Prompt-size sweep"), Step(title: "Prefix reuse"),
-                 Step(title: "Sustained generation"), Step(title: "Embedding speed"), Step(title: "Archive scale on this phone")]
+                 Step(title: "Sustained generation"), Step(title: "Embedding speed"), Step(title: "Retrieval quality (41 questions)"), Step(title: "Archive scale on this phone")]
         task = Task { await run(app: app, mode: mode); running = false }
     }
     func cancel() { task?.cancel() }
@@ -57,6 +59,7 @@ final class BenchmarkRunner {
         set(1, .running)
         guard let loaded = await app.engine.loadedModel, let id = app.loadedChatModelID else {
             set(1, .failed, "Load a chat model in Models first."); for i in 2...5 { set(i, .skipped) }
+            await retrievalStep(&r, app: app)
             await archiveScale(&r, app: app, mode: mode); finish(r); return
         }
         r.model = ["id": id, "loadSeconds": String(format: "%.1f", loaded.loadSeconds), "weightsMB": String(loaded.weightsBytes / 1_048_576),
@@ -117,20 +120,39 @@ final class BenchmarkRunner {
             set(5, .done, String(format: "%.0f passages/s", 200 / max(secs, 0.001)))
         } else { set(5, .skipped, "No embedding model loaded") }
 
+        await retrievalStep(&r, app: app)
         await archiveScale(&r, app: app, mode: mode)
         finish(r)
     }
 
-    private func archiveScale(_ r: inout Report, app: AppModel, mode: Mode) async {
+    private func retrievalStep(_ r: inout Report, app: AppModel) async {
+        // retrieval quality: the same 41-question end-to-end evaluation as the Linux harness, with whatever embedder is loaded here
         set(6, .running)
+        if let svc = app.services, app.loadedEmbedderID != nil, !Task.isCancelled {
+            let dir = FileManager.default.temporaryDirectory.appendingPathComponent("eval-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let emb = svc.embedder
+            if let rep = try? await EvalSuite.run(embedder: emb, realEmbedder: true, noiseMessages: 2000, dir: dir) {
+                r.retrievalQuality = ["hitAt1": rep.hitAt1, "hitAt3": rep.hitAt3, "mrr": rep.mrr, "answerRate": rep.answerRate, "abstainRate": rep.abstainRate,
+                                      "tunedPass": rep.tunedPassRate, "heldOutPass": rep.heldOutPassRate, "freshHeldOutPass": rep.heldOut2PassRate,
+                                      "indexSeconds": rep.indexSeconds, "messages": Double(rep.totalMessages)]
+                r.retrievalByCategory = rep.byCategory
+                set(6, .done, String(format: "hit@3 %.2f · fresh held-out %.2f (Linux MiniLM: 0.94 / 0.67)", rep.hitAt3, rep.heldOut2PassRate))
+            } else { set(6, .failed, "evaluation failed") }
+        } else { set(6, .skipped, "No embedding model loaded") }
+
+    }
+
+    private func archiveScale(_ r: inout Report, app: AppModel, mode: Mode) async {
+        set(7, .running)
         let sizes = mode == .quick ? [20_000] : [50_000, 200_000]
         for n in sizes {
             if Task.isCancelled { break }
-            steps[6].detail = "\(n.formatted()) messages…"
+            steps[7].detail = "\(n.formatted()) messages…"
             let result = await Task.detached(priority: .utility) { await Self.archiveBench(messages: n) }.value
-            if let row = result { r.archive.append(row); steps[6].detail = String(format: "%d msgs: insert %.0f msg/s, retrieve p50 %.0f ms", n, row["insertMsgsPerSec"] ?? 0, row["retrieveP50ms"] ?? 0) }
+            if let row = result { r.archive.append(row); steps[7].detail = String(format: "%d msgs: insert %.0f msg/s, retrieve p50 %.0f ms", n, row["insertMsgsPerSec"] ?? 0, row["retrieveP50ms"] ?? 0) }
         }
-        set(6, .done, steps[6].detail)
+        set(7, .done, steps[7].detail)
     }
 
     nonisolated static func archiveBench(messages n: Int) async -> [String: Double]? {

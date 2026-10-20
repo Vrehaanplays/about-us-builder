@@ -14,6 +14,11 @@ struct Args {
     var keep = false
     var embedDim = 256
     var vectorsFile: String?
+    var ops = false
+    var opsBase = 300_000
+    var opsInc = 20_000
+    var opsAssets = 50_000
+    var childEmbed: String?
     var scaleSizes: [Int] = []
 }
 
@@ -29,6 +34,11 @@ func parse() -> Args {
         case "--queries": a.queries = Int(it.next() ?? "") ?? a.queries
         case "--keep": a.keep = true
         case "--vectors-file": a.vectorsFile = it.next()
+        case "--ops": a.ops = true
+        case "--ops-base": a.opsBase = Int(it.next() ?? "") ?? a.opsBase
+        case "--ops-inc": a.opsInc = Int(it.next() ?? "") ?? a.opsInc
+        case "--ops-assets": a.opsAssets = Int(it.next() ?? "") ?? a.opsAssets
+        case "--child-embed": a.childEmbed = it.next()
         case "--scale": a.scaleSizes = (it.next() ?? "").split(separator: ",").compactMap { Int($0) }
         case "--dim": a.embedDim = Int(it.next() ?? "") ?? a.embedDim
         default: print("unknown arg \(k)")
@@ -58,6 +68,8 @@ func hostInfo() -> [String: Any] {
 }
 
 let args = parse()
+if let c = args.childEmbed { try await runChildEmbed(dir: c); exit(0) }
+if args.ops { try await runOpsBench(baseMessages: args.opsBase, incrementalMessages: args.opsInc, assets: args.opsAssets, dir: args.dir, out: args.out); exit(0) }
 if let f = args.vectorsFile {
     try runVectorBench(file: f, dim: args.embedDim, queriesN: 300, scaleSizes: args.scaleSizes, out: args.out)
     exit(0)

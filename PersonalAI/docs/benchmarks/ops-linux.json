@@ -1,0 +1,51 @@
+{
+  "assets" : {
+    "count" : 50000,
+    "insert_seconds" : 1.8725611150002806,
+    "inserts_per_sec" : 26701.398207765575,
+    "search_ms_max" : 31.688723998740898
+  },
+  "base_chunks" : 233561,
+  "base_db_bytes" : 607665760,
+  "base_index_seconds" : 117.89020589999927,
+  "base_insert_seconds" : 124.11452249700051,
+  "baseMessages" : 500000,
+  "delete_200_conversations" : {
+    "erase_seconds" : 0.5797430519996851,
+    "messages" : 5509,
+    "purge_seconds" : 0.14947199000016553,
+    "purged" : 2345,
+    "vectors_queued" : 2345
+  },
+  "duplicate_import" : {
+    "duplicates" : 21288,
+    "messages_inserted" : 0,
+    "seconds" : 3.0323754109995207
+  },
+  "full_rebuild_seconds" : 131.39963226100008,
+  "host" : {
+    "cores" : 4,
+    "cpu" : "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "note" : "Linux x86_64 dev box. NOT an iPhone. Use for relative scaling behaviour only.",
+    "os" : "Ubuntu 24.04.5 LTS"
+  },
+  "incremental_chunks_embedded" : 9083,
+  "incremental_import" : {
+    "json_mb" : 13.886971,
+    "messages_inserted" : 21288,
+    "msgs_per_sec" : 3584.9653430419976,
+    "seconds" : 5.93813271900035
+  },
+  "incremental_index_seconds" : 4.900564932000634,
+  "kill9_recovery" : {
+    "child_killed_while_running" : true,
+    "chunks_total" : 240299,
+    "embedded_at_kill" : 80128,
+    "final_pending" : 0,
+    "final_vectors" : 240299,
+    "integrity_check" : "ok",
+    "resume_seconds" : 79.06555151400062,
+    "vectors_plus_pending_equals_chunks" : true
+  },
+  "rechunk_seconds" : 6.207903292000992
+}

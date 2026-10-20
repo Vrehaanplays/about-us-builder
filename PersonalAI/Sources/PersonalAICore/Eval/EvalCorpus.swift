@@ -4,8 +4,14 @@ import Foundation
 /// Needles are buried inside long, topically *similar* chatter so that finding them requires retrieval, not luck.
 /// It is small and synthetic: it measures behaviour (paraphrase, time, names, corrections, abstention), not real-world accuracy.
 public struct EvalCorpus: Sendable {
-    public struct Line: Sendable { public var role: Role; public var text: String; public var key: String? }
-    public struct Conv: Sendable { public var name: String; public var title: String; public var start: String; public var lines: [Line] }
+    public struct Line: Sendable {
+        public var role: Role; public var text: String; public var key: String?
+        public init(role: Role, text: String, key: String? = nil) { self.role = role; self.text = text; self.key = key }
+    }
+    public struct Conv: Sendable {
+        public var name: String; public var title: String; public var start: String; public var lines: [Line]
+        public init(name: String, title: String, start: String, lines: [Line]) { self.name = name; self.title = title; self.start = start; self.lines = lines }
+    }
 
     public struct Case: Sendable {
         public var id: String
@@ -22,6 +28,7 @@ public struct EvalCorpus: Sendable {
 
     public var conversations: [Conv]
     public var cases: [Case]
+    public init(conversations: [Conv], cases: [Case]) { self.conversations = conversations; self.cases = cases }
     public var now: Date { Date(timeIntervalSince1970: Self.ts("2025-09-01T12:00:00Z")) }
 
     public static func ts(_ s: String) -> Double {
