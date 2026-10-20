@@ -49,6 +49,20 @@ final class VectorTests: XCTestCase {
         XCTAssertEqual(try idx.searchExact(vecs[200], k: 1).first?.id, 200)
     }
 
+    func testUnclusteredDataStaysExactBecauseApproximationIsNotProven() throws {
+        let (db, dir) = try makeTempDB(); defer { try? FileManager.default.removeItem(at: dir) }
+        let idx = try VectorIndex(archive: db, space: 1, name: "c", embedderID: "rand", dim: 64)
+        idx.exactLimit = 500
+        var rng = SystemRandomNumberGenerator()
+        let vecs: [[Float]] = (0..<3000).map { _ in var v = (0..<64).map { _ in Float.random(in: -1...1, using: &rng) }; VectorMath.normalize(&v); return v }
+        try idx.add(vecs.enumerated().map { (Int64($0), $1) })
+        try idx.train(lists: 32)
+        let q = try idx.calibrate(target: 0.9)
+        XCTAssertTrue(q.exact, "random 64-d vectors have no cluster structure: IVF cannot reach 0.9 recall without scanning (nearly) everything, so search must stay exact; got \(q)")
+        for i in [3, 77, 1500] { XCTAssertEqual(try idx.search(vecs[i], k: 5).map(\.id), try idx.searchExact(vecs[i], k: 5).map(\.id)) }
+        XCTAssertEqual(VectorIndex.recommendedLists(for: 1_000_000), 4000)
+    }
+
     func testErasedChunkVectorsArePhysicallyPurged() async throws {
         let (db, dir) = try makeTempDB(); defer { try? FileManager.default.removeItem(at: dir) }
         let store = ArchiveStore(db: db)

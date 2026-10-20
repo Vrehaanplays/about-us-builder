@@ -23,7 +23,11 @@ public final class VectorIndex: @unchecked Sendable {
     public let space: Int
     public let dim: Int
     public let embedderID: String
-    public var exactLimit = 400_000
+    /// Exhaustive scan is used up to this many vectors. Measured on the dev box (docs/EVAL.md): 640k 256-d vectors scan in ~150 ms,
+    /// 500k 384-d in ~137 ms; a decade of heavy chat is ~0.5M chunks, so exact search is adequate and has no recall risk. Scales with dimension.
+    public var exactLimit: Int
+    /// Approximate search is only used when calibration proved at least this recall on this very index.
+    public var minApproxRecall = 0.9
     private let pdim: Int                 // dim padded to a multiple of 16 for SIMD
     private let blockCap: Int
 
@@ -32,9 +36,11 @@ public final class VectorIndex: @unchecked Sendable {
     private var nlist = 0
     private var centroidsLoaded = false
     private var storedNprobe: Int?
+    private var storedRecall: Double?
 
     public init(archive: ArchiveDatabase, space: Int, name: String, embedderID: String, dim: Int, itemKind: String = "chunk") throws {
         self.archive = archive; self.space = space; self.dim = dim; self.embedderID = embedderID
+        exactLimit = max(100_000, 384_000_000 / max(dim, 1))
         pdim = (dim + 15) / 16 * 16
         blockCap = max(16, 32_768 / (dim + 16))
         try archive.write { w in
@@ -60,7 +66,7 @@ public final class VectorIndex: @unchecked Sendable {
     public func quality() throws -> IndexQuality {
         let n = try count()
         let row = try archive.read { try $0.queryOne("SELECT nlist, nprobe, measured_recall FROM vec_space WHERE space=?", [.int(space)]) { (Int($0.int(0)), $0.optInt(1).map(Int.init), $0.optDouble(2)) } }
-        return IndexQuality(vectors: n, lists: row?.0 ?? 1, nprobe: row?.1, measuredRecall: row?.2, exact: n <= exactLimit || (row?.0 ?? 1) <= 1)
+        return IndexQuality(vectors: n, lists: row?.0 ?? 1, nprobe: row?.1, measuredRecall: row?.2, exact: n <= exactLimit || (row?.0 ?? 1) <= 1 || !((row?.1 ?? Int.max) < (row?.0 ?? 1) && (row?.2 ?? 0) >= minApproxRecall))
     }
 
     // MARK: quantisation + kernels
@@ -100,7 +106,8 @@ public final class VectorIndex: @unchecked Sendable {
         var flat = [Float](); flat.reserveCapacity(rows.count * dim)
         for d in rows { d.withUnsafeBytes { flat.append(contentsOf: $0.bindMemory(to: Float.self)) } }
         centroids = flat; nlist = rows.count; centroidsLoaded = true
-        storedNprobe = try archive.read { try $0.queryOne("SELECT nprobe FROM vec_space WHERE space=?", [.int(space)]) { $0.optInt(0).map(Int.init) } } ?? nil
+        let st = try archive.read { try $0.queryOne("SELECT nprobe, measured_recall FROM vec_space WHERE space=?", [.int(space)]) { ($0.optInt(0).map(Int.init), $0.optDouble(1)) } }
+        storedNprobe = st?.0; storedRecall = st?.1
     }
 
     private func nearestLists(_ q: [Float], count: Int) -> [Int] {
@@ -240,6 +247,9 @@ public final class VectorIndex: @unchecked Sendable {
         try loadCentroids()
         let total = try count()
         if nlist <= 1 || total <= exactLimit { return try scan(lists: nil, query: query, k: k, accept: accept) }
+        // Beyond the exact limit: approximate only when calibration proved it is good enough here (or the caller insists); otherwise stay exact and correct.
+        let proven = (storedNprobe.map { $0 < nlist } ?? false) && (storedRecall ?? 0) >= minApproxRecall
+        if nprobe == nil && !proven { return try scan(lists: nil, query: query, k: k, accept: accept) }
         let probes = nprobe ?? storedNprobe ?? max(8, nlist / 8)
         return try scan(lists: nearestLists(query, count: min(nlist, probes)), query: query, k: k, accept: accept)
     }
@@ -457,7 +467,7 @@ public final class VectorIndex: @unchecked Sendable {
         }
         let used = chosen ?? nlist
         try archive.write { try $0.run("UPDATE vec_space SET nprobe=?, measured_recall=? WHERE space=?", [.int(used), .double(recall), .int(space)]) }
-        lock.lock(); storedNprobe = used; lock.unlock()
+        lock.lock(); storedNprobe = used; storedRecall = recall; lock.unlock()
         return try quality()
     }
 }

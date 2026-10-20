@@ -12,7 +12,7 @@
 ## Retrieval and memory
 - Evaluation corpus is tiny, English, hand-written, and the answerer is a quoting stand-in, not an LLM. The only fully fresh result is 6/9 (see `EVAL.md`).
 - A 22M-parameter embedder misses some paraphrases buried in long single-topic chats. Stronger embedders are in the catalogue but unmeasured here. A re-ranker is wired (`Reranker` protocol) but none is enabled: there is no evidence yet that one earns its latency and memory.
-- Notes are extracted by deterministic rules (explicit first-person statements) only. LLM-assisted extraction and conversation summaries are designed (`TextGenerator`, `summary` table, quote verification) but not connected to the on-device model yet. Expect few notes and no inference about relationships or habits.
+- Notes come from two tiers. The free tier is deterministic rules over explicit first-person statements. The model tier (the on-device chat model proposes structured notes, each still requiring a verbatim quote that is checked against the message; unit-tested with a scripted generator that tries to smuggle in a fabricated quote) is wired into the app but has **never run with a real model**; it only runs while charging, idle, cool, and with a model already loaded. Conversation summaries (`summary` table) are designed but not generated yet.
 - Entity (people, projects) resolution is only as good as notes/rules that create entities; automatic entity extraction needs the LLM tier.
 - Photos and files are searchable by OCR text, labels, names, dates and GPS metadata, **not by meaning** (no image embeddings), and not linked into conversations unless an export attached them.
 - Zip exports are unpacked with ZIPFoundation; very large zips are fully extracted to a temporary folder first.

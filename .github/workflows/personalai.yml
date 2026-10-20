@@ -100,6 +100,14 @@ jobs:
             PersonalAI/App/*.log
             PersonalAI/App/build/tests.xcresult
           if-no-files-found: warn
+      - name: Report (always last, so the log tail is the summary)
+        if: always()
+        run: |
+          echo "=== REPORT ==="
+          grep -E "Executed [0-9]+ tests?, with|Test Suite 'All tests'|\*\* TEST (SUCCEEDED|FAILED)" test-sim.log 2>/dev/null | tail -4 || true
+          grep -E "\*\* (TEST )?BUILD (SUCCEEDED|FAILED)" build-sim.log build-device.log 2>/dev/null | tail -4 || true
+          [ -f PersonalAI-unsigned.ipa ] && { ls -l PersonalAI-unsigned.ipa; shasum -a 256 PersonalAI-unsigned.ipa; unzip -l PersonalAI-unsigned.ipa | tail -1; } || echo "no ipa"
+          [ -d ipa/Payload ] && /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" ipa/Payload/*.app/Info.plist && lipo -info ipa/Payload/*.app/PersonalAIApp || true
       - name: Show errors (compact)
         if: failure()
         run: |

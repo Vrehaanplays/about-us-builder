@@ -59,6 +59,7 @@ public final class IndexingPipeline: @unchecked Sendable {
     public func trainStepIfNeeded(shouldContinue: () -> Bool) throws -> Bool {
         guard let vectors, try vectors.needsTraining() else { return false }
         try vectors.train(shouldContinue: shouldContinue)
+        try vectors.calibrate()          // approximate search is only switched on if it is proven good on this data
         return true
     }
 }
