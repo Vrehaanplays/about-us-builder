@@ -90,3 +90,47 @@ jobs:
             PersonalAI/App/*.log
             PersonalAI/App/build/tests.xcresult
           if-no-files-found: warn
+
+  testflight:
+    name: Signed build → TestFlight (needs a paid Apple Developer account + secrets)
+    if: github.event_name == 'workflow_dispatch' && inputs.sign
+    runs-on: macos-26
+    needs: [ ios-app ]
+    defaults: { run: { working-directory: PersonalAI/App } }
+    env:
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check secrets
+        run: |
+          for v in TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8_BASE64; do [ -n "${!v}" ] || { echo "::error::missing secret for $v - see PersonalAI/docs/DISTRIBUTION.md"; exit 1; }; done
+      - name: Select newest Xcode
+        run: X=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1); sudo xcode-select -s "$X"
+      - run: brew install xcodegen
+      - name: Add the increased-memory-limit entitlement (paid accounts only)
+        run: |
+          /usr/libexec/PlistBuddy -c "Add :com.apple.developer.kernel.increased-memory-limit bool true" Resources/PersonalAI.entitlements
+          sed -i '' "s/DEVELOPMENT_TEAM: \"\"/DEVELOPMENT_TEAM: \"$TEAM_ID\"/" project.yml
+          xcodegen generate
+      - name: Archive and upload to TestFlight
+        run: |
+          set -eo pipefail
+          mkdir -p ~/private_keys && echo "$ASC_KEY_P8_BASE64" | base64 --decode > ~/private_keys/AuthKey_$ASC_KEY_ID.p8
+          AUTH="-allowProvisioningUpdates -authenticationKeyPath $HOME/private_keys/AuthKey_$ASC_KEY_ID.p8 -authenticationKeyID $ASC_KEY_ID -authenticationKeyIssuerID $ASC_ISSUER_ID"
+          BUILD=$(date +%y%m%d%H%M)
+          xcodebuild archive -project PersonalAIApp.xcodeproj -scheme PersonalAIApp -configuration Release -destination 'generic/platform=iOS' \
+            -archivePath build/PersonalAI.xcarchive CURRENT_PROJECT_VERSION=$BUILD $AUTH | tail -20
+          cat > build/export.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath build/PersonalAI.xcarchive -exportOptionsPlist build/export.plist -exportPath build/export $AUTH | tail -20
