@@ -10,7 +10,7 @@ public struct RetrievalConfig: Sendable {
     public var vectorK = 40
     public var nprobe: Int? = nil
     public var rrfK = 60.0
-    public var weights: [String: Double] = ["lexical": 1.0, "vector": 1.0, "memory": 1.3, "entity": 0.6, "assoc": 0.5]
+    public var weights: [String: Double] = ["lexical": 1.0, "vector": 1.0, "memory": 1.3, "entity": 0.6, "assoc": 0.5, "fine": 1.0]
     public var maxSpans = 6
     public var maxPerConversation = 2
     public var maxSpanMessages = 12
@@ -19,6 +19,11 @@ public struct RetrievalConfig: Sendable {
     public var minVectorScore: Float = 0.30
     public var strongVectorScore: Float = 0.50
     public var minTermCoverage = 0.34
+    /// Message-level rescoring of the best vector chunks: a chunk embedding averages its neighbours, so a one-line answer inside a long
+    /// single-topic chat is drowned out. Re-embedding the candidate chunks' own messages (a few dozen short texts per query) restores it.
+    public var fineRescore = true
+    public var fineChunks = 12
+    public var fineMaxTexts = 96
     public init() {}
 }
 
@@ -32,6 +37,8 @@ public struct RetrievalContext: Sendable {
     }
 }
 
+public struct OutdatedNote: Sendable { public var replacedBy: Int64; public var currentText: String; public var since: Double? }
+
 public struct EvidenceSpan: Sendable, Identifiable {
     public var id: String { "\(conversationID):\(firstSeq)-\(lastSeq)" }
     public var conversationID: Int64
@@ -44,6 +51,8 @@ public struct EvidenceSpan: Sendable, Identifiable {
     public var reasons: [String]
     public var termCoverage: Double
     public var vectorScore: Float?
+    /// Set when an anchor message is the only support for a memory that a later statement replaced: show it as history, not as the current truth.
+    public var outdated: OutdatedNote?
     public var date: Date { Date(timeIntervalSince1970: messages.first?.createdAt ?? 0) }
 }
 
@@ -104,9 +113,24 @@ public final class HybridRetriever: @unchecked Sendable {
     private func ms(_ since: DispatchTime) -> Double { Double(DispatchTime.now().uptimeNanoseconds - since.uptimeNanoseconds) / 1e6 }
 
     public func retrieve(_ query: String, context: RetrievalContext = RetrievalContext(), hasHistory: Bool = true) async throws -> RetrievalResult {
+        let first = try await retrieveOnce(query, context: context, hasHistory: hasHistory, relaxTime: false)
+        // "in March" may describe what the message is about, not when it was written: if the strict window finds nothing, look wider and say so
+        if first.spans.isEmpty, let t = first.plan.time, t.hard, !Self.relativeLabels.contains(t.label) {
+            var second = try await retrieveOnce(query, context: context, hasHistory: hasHistory, relaxTime: true)
+            second.diagnostics.counts["timeRelaxed"] = 1
+            return second.spans.isEmpty ? first : second
+        }
+        return first
+    }
+
+    static let relativeLabels: Set<String> = ["yesterday", "today", "last week", "this week", "last month", "this month", "last year", "this year"]
+
+    func retrieveOnce(_ query: String, context: RetrievalContext, hasHistory: Bool, relaxTime: Bool) async throws -> RetrievalResult {
         var diag = RetrievalDiagnostics()
         let t0 = DispatchTime.now()
-        let plan = analyzer.analyze(query, now: context.now, entities: entities, hasHistory: hasHistory)
+        var planDraft = analyzer.analyze(query, now: context.now, entities: entities, hasHistory: hasHistory)
+        if relaxTime, planDraft.time != nil { planDraft.time!.hard = false }
+        let plan = planDraft
         diag.millis["analyze"] = ms(t0)
 
         // Standing instructions are tiny and always relevant; they never depend on a retrieval pass.
@@ -133,6 +157,12 @@ public final class HybridRetriever: @unchecked Sendable {
         var qv: [Float]?
         if let embedder, !plan.query.isEmpty { qv = try? await embedder.embed([plan.query], kind: .query).first }
         let vecHits = (try? await self.vectorChannel(qv: qv, k: deep ? cfg.vectorK * 2 : cfg.vectorK, hardTime: filters.timeRange)) ?? []
+        var fineHits: [(msg: MessageRecord, score: Float)] = []
+        if cfg.fineRescore, let embedder, let qv, !vecHits.isEmpty {
+            let tf = DispatchTime.now()
+            fineHits = (try? await fineRescore(vecHits: vecHits, qv: qv, embedder: embedder)) ?? []
+            diag.millis["fine"] = ms(tf); diag.counts["fine"] = fineHits.count
+        }
         let memHits = (try? await Task.detached { [self] in try self.memoryChannel(plan: plan, context: context, qv: qv) }.value) ?? []
         let lexHits = (try? await lexTask) ?? []
         diag.millis["channels"] = ms(tl)
@@ -145,6 +175,9 @@ public final class HybridRetriever: @unchecked Sendable {
         }
         for (rank, (h, c)) in vecHits.enumerated() {
             cands.append(Cand(conv: c.conversationID, lo: c.firstSeq, hi: c.lastSeq, anchors: Set(c.firstSeq...c.lastSeq), channels: ["vector": rank], t0: c.t0, t1: c.t1, vectorScore: h.score))
+        }
+        for (rank, f) in fineHits.enumerated() where f.score >= cfg.minVectorScore {
+            cands.append(Cand(conv: f.msg.conversationID, lo: f.msg.seq, hi: f.msg.seq, anchors: [f.msg.seq], channels: ["fine": rank], t0: f.msg.createdAt, t1: f.msg.createdAt, vectorScore: f.score))
         }
         // memory-backed evidence: the messages that *prove* a relevant memory are strong candidates
         for (rank, m) in memHits.prefix(6).enumerated() {
@@ -176,10 +209,15 @@ public final class HybridRetriever: @unchecked Sendable {
         if let t = plan.time, t.hard { cands = cands.filter { $0.t1 >= t.from && $0.t0 <= t.to } }
 
         // ---- merge overlapping spans, RRF ----
+        let info = lexical.informativeTerms(plan.terms, total: (try? archive.stats().messages) ?? 0)
+        let rare = info.map(\.term)
+        // a keyword hit on one common word out of a long question is weak evidence: trust the lexical channel in proportion to how many
+        // of the question's content words are actually distinctive in this archive
+        let lexicalTrust = rare.isEmpty ? 1.0 : max(0.35, min(1.0, Double(rare.count) / Double(max(1, min(plan.terms.count, 4)))))
         var merged = Self.merge(cands, maxLen: cfg.maxSpanMessages)
         for i in merged.indices {
             var s = 0.0
-            for (ch, rank) in merged[i].channels { s += (cfg.weights[ch] ?? 1) / (cfg.rrfK + Double(rank)) }
+            for (ch, rank) in merged[i].channels { s += (cfg.weights[ch] ?? 1) * (ch == "lexical" ? lexicalTrust : 1) / (cfg.rrfK + Double(rank)) }
             merged[i].lexScore = s       // reuse field for fused score
         }
         merged.sort { ($0.lexScore ?? 0) > ($1.lexScore ?? 0) }
@@ -187,8 +225,7 @@ public final class HybridRetriever: @unchecked Sendable {
 
         // ---- features, gating ----
         let tr = DispatchTime.now()
-        let info = lexical.informativeTerms(plan.terms, total: (try? archive.stats().messages) ?? 0)
-        let rare = info.map(\.term)
+        if ProcessInfo.processInfo.environment["PAI_TRACE"] != nil { FileHandle.standardError.write(Data("  terms=\(plan.terms) rare=\(rare)\n".utf8)) }
         struct Scored { var c: Cand; var score: Double; var coverage: Double; var msgs: [MessageRecord] }
         var scored: [Scored] = []
         let now = context.now.timeIntervalSince1970
@@ -204,8 +241,14 @@ public final class HybridRetriever: @unchecked Sendable {
             if c.channels["entity"] != nil { pass = true }
             if !pass { continue }
             var s = c.lexScore ?? 0
-            if !rare.isEmpty { s *= 0.8 + 0.4 * coverage }
+            if !rare.isEmpty {
+                // strong semantic agreement stands in for keyword overlap: a paraphrase has none by definition
+                let semantic = Double(max(0, min(1, ((c.vectorScore ?? 0) - cfg.minVectorScore) / (cfg.strongVectorScore + 0.05 - cfg.minVectorScore))))
+                s *= 0.8 + 0.4 * max(coverage, semantic)
+            }
             if phraseHit { s *= 1.5 }
+            // rank fusion alone ignores margins: a message far above the 'strong' similarity line should beat a crowd of mediocre agreements
+            if let v = c.vectorScore, v > cfg.strongVectorScore - 0.05 { s *= 1 + 4 * Double(v - (cfg.strongVectorScore - 0.05)) }
             if let t = plan.time {
                 let inside = c.t1 >= t.from && c.t0 <= t.to
                 s *= inside ? 1.25 : (t.hard ? 0 : 0.85)
@@ -215,6 +258,7 @@ public final class HybridRetriever: @unchecked Sendable {
             scored.append(Scored(c: c, score: s, coverage: coverage, msgs: msgs))
         }
         scored.sort { $0.score > $1.score }
+        if ProcessInfo.processInfo.environment["PAI_TRACE"] != nil { for s in scored.prefix(8) { FileHandle.standardError.write(Data("  cand conv\(s.c.conv) \(s.c.lo)-\(s.c.hi) score=\(s.score) cov=\(s.coverage) ch=\(s.c.channels)\n".utf8)) } }
 
         // optional neural rerank of the head
         if let reranker, deep || scored.count > 3, !scored.isEmpty {
@@ -267,6 +311,11 @@ public final class HybridRetriever: @unchecked Sendable {
             spans.append(EvidenceSpan(conversationID: s.c.conv, conversationTitle: titles[s.c.conv] ?? "Untitled", firstSeq: lo, lastSeq: upper,
                                       anchorMessageIDs: msgs.filter { s.c.anchors.contains($0.seq) }.map(\.id), messages: msgs, score: s.score, channels: channels,
                                       reasons: reasons, termCoverage: s.coverage, vectorScore: s.c.vectorScore))
+        }
+
+        // ---- mark evidence that a later statement has replaced ----
+        for i in spans.indices {
+            if let o = try? outdatedNote(for: spans[i].anchorMessageIDs) { spans[i].outdated = o }
         }
 
         // ---- associative hop (deep queries): neighbours of the best evidence that the query never named ----
@@ -368,5 +417,47 @@ public final class HybridRetriever: @unchecked Sendable {
             } else { out.append(c) }
         }
         return out
+    }
+}
+
+
+extension HybridRetriever {
+    /// If the anchors support a memory that has been superseded by an *active* newer one (and nothing active), return the replacement.
+    func outdatedNote(for anchors: [Int64]) throws -> OutdatedNote? {
+        guard !anchors.isEmpty else { return nil }
+        let marks = anchors.map { _ in "?" }.joined(separator: ",")
+        let args = anchors.map { SQLiteValue.int($0) }
+        return try archive.db.read { r in
+            try r.queryOne("""
+                SELECT n.id, n.text, n.valid_from FROM memory_evidence e
+                JOIN memory o ON o.id = e.memory_id AND o.status = 'superseded'
+                JOIN memory n ON n.supersedes = o.id AND n.status = 'active'
+                WHERE e.message_id IN (\(marks))
+                  AND NOT EXISTS (SELECT 1 FROM memory_evidence e2 JOIN memory a ON a.id = e2.memory_id AND a.status = 'active' WHERE e2.message_id IN (\(marks)))
+                ORDER BY n.valid_from DESC LIMIT 1
+                """, args + args) { OutdatedNote(replacedBy: $0.int(0), currentText: $0.text(1), since: $0.optDouble(2)) }
+        }
+    }
+}
+
+
+extension HybridRetriever {
+    /// Embeds the user-authored messages of the best chunks and returns them ranked by similarity to the query.
+    func fineRescore(vecHits: [(VectorHit, ChunkRecord)], qv: [Float], embedder: any TextEmbedder) async throws -> [(msg: MessageRecord, score: Float)] {
+        var msgs: [MessageRecord] = []
+        var seen = Set<Int64>()
+        for (_, c) in vecHits.prefix(config.fineChunks) {
+            for m in try archive.messages(conversationID: c.conversationID, seqFrom: c.firstSeq, seqTo: c.lastSeq) where m.role == .user && seen.insert(m.id).inserted {
+                msgs.append(m)
+                if msgs.count >= config.fineMaxTexts { break }
+            }
+            if msgs.count >= config.fineMaxTexts { break }
+        }
+        guard !msgs.isEmpty else { return [] }
+        if ProcessInfo.processInfo.environment["PAI_TRACE"] != nil { FileHandle.standardError.write(Data("fine: \(msgs.count) texts from \(vecHits.prefix(config.fineChunks).map { "\($0.1.firstSeq)-\($0.1.lastSeq)" })\n".utf8)) }
+        let vs = try await embedder.embed(msgs.map { String($0.text.prefix(600)) }, kind: .document)
+        let ranked = zip(msgs, vs).map { ($0, VectorMath.dot(qv, $1)) }.sorted { $0.1 > $1.1 }
+        if ProcessInfo.processInfo.environment["PAI_TRACE"] != nil { for r in ranked.prefix(3) { FileHandle.standardError.write(Data("  fine \(r.1) seq \(r.0.seq): \(r.0.text.prefix(50))\n".utf8)) } }
+        return ranked.prefix(12).map { (msg: $0.0, score: $0.1) }
     }
 }

@@ -10,6 +10,7 @@ let package = Package(
     products: [
         .library(name: "PersonalAICore", targets: ["PersonalAICore"]),
         .executable(name: "paibench", targets: ["paibench"]),
+        .executable(name: "paieval", targets: ["paieval"]),
     ],
     targets: [
         .systemLibrary(name: "CSQLite", path: "Sources/CSQLite"),
@@ -18,6 +19,7 @@ let package = Package(
             dependencies: [.target(name: "CSQLite", condition: .when(platforms: [.linux]))]
         ),
         .executableTarget(name: "paibench", dependencies: ["PersonalAICore"]),
+        .executableTarget(name: "paieval", dependencies: ["PersonalAICore"]),
         .testTarget(name: "PersonalAICoreTests", dependencies: ["PersonalAICore"]),
     ]
 )

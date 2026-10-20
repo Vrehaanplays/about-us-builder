@@ -22,7 +22,8 @@ public struct TimeParser: Sendable {
         let cal = calendar
         func startOfDay(_ d: Date) -> Date { cal.startOfDay(for: d) }
         func add(_ c: Calendar.Component, _ n: Int, to d: Date) -> Date { cal.date(byAdding: c, value: n, to: d)! }
-        func range(_ a: Date, _ b: Date, hard: Bool, _ label: String) -> TimeConstraint { TimeConstraint(from: a.timeIntervalSince1970, to: b.timeIntervalSince1970, hard: hard, label: label) }
+        // a range that starts after "now" cannot be when something was *said*; it is when something is *about*, so it only boosts, never filters
+        func range(_ a: Date, _ b: Date, hard: Bool, _ label: String) -> TimeConstraint { TimeConstraint(from: a.timeIntervalSince1970, to: b.timeIntervalSince1970, hard: hard && a <= now, label: label) }
         let today = startOfDay(now)
 
         if q.contains("yesterday") { return range(add(.day, -1, to: today), today, hard: true, "yesterday") }

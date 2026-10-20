@@ -3,7 +3,8 @@ import Foundation
 public struct Citation: Sendable, Identifiable {
     public var id: String                 // "E1" / "M3"
     public var conversationID: Int64?
-    public var messageIDs: [Int64]
+    public var messageIDs: [Int64]        // every message shown to the model under this tag
+    public var anchorMessageIDs: [Int64] = []   // the ones that actually matched
     public var memoryID: Int64?
     public var title: String
 }
@@ -126,7 +127,7 @@ public final class PromptAssembler: @unchecked Sendable {
             var budgetLeft = plan.evidenceBudget
             for (i, span) in r.spans.enumerated() {
                 let tag = "E\(i + 1)"
-                var block = "[\(tag)] \"\(span.conversationTitle)\" · \(Self.dateFmt.string(from: span.date))\(span.channels.contains("assoc") ? " · related discussion" : "")\n"
+                var block = "[\(tag)] \"\(span.conversationTitle)\" · \(Self.dateFmt.string(from: span.date))\(span.channels.contains("assoc") ? " · related discussion" : "")\(Self.outdatedLabel(span))\n"
                 for m in span.messages {
                     let isAnchor = span.anchorMessageIDs.contains(m.id)
                     let cap = isAnchor ? 1400 : 500
@@ -137,7 +138,7 @@ public final class PromptAssembler: @unchecked Sendable {
                 if t > budgetLeft { if historyLines.isEmpty, budgetLeft > 300 { block = String(block.prefix(budgetLeft * 3)) } else { continue } }
                 budgetLeft -= min(t, budgetLeft); evidenceTokens += min(t, plan.evidenceBudget)
                 historyLines.append(block)
-                citations.append(Citation(id: tag, conversationID: span.conversationID, messageIDs: span.anchorMessageIDs, memoryID: nil, title: span.conversationTitle))
+                citations.append(Citation(id: tag, conversationID: span.conversationID, messageIDs: span.messages.map(\.id), anchorMessageIDs: span.anchorMessageIDs, memoryID: nil, title: span.conversationTitle))
                 if budgetLeft < 120 { break }
             }
             var noteLines: [String] = []
@@ -177,6 +178,12 @@ public final class PromptAssembler: @unchecked Sendable {
                                      "outline": outlineTokens, "total": systemTokens + used + evidenceTokens + counter.count(userText)]
         return AssembledPrompt(messages: messages, citations: citations, plan: plan, tokens: tokens,
                                historyMessagesIncluded: history.count, historyMessagesTotal: total, retrieval: retrieval, diagnostics: diag)
+    }
+
+    static func outdatedLabel(_ s: EvidenceSpan) -> String {
+        guard let o = s.outdated else { return "" }
+        let when = o.since.map { " (from \(dateFmt.string(from: Date(timeIntervalSince1970: $0))))" } ?? ""
+        return " · OUTDATED, later replaced\(when) by: \(o.currentText)"
     }
 
     /// Head-and-tail elision: details at both ends of a long message usually matter most.
