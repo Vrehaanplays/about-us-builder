@@ -1,0 +1,274 @@
+{
+  "corpus" : "Python docstrings\/docs, not chat data",
+  "embedder" : "all-MiniLM-L6-v2 (ONNX, CPU) over real passages",
+  "host" : {
+    "cores" : 4,
+    "cpu" : "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "note" : "Linux x86_64 dev box. NOT an iPhone. Use for relative scaling behaviour only.",
+    "os" : "Ubuntu 24.04.5 LTS"
+  },
+  "latency_only_stages" : [
+    {
+      "add_seconds" : 14.567433141999572,
+      "dim" : 384,
+      "exact_scan_ms_max" : 33.16643500056671,
+      "exact_scan_ms_p50" : 23.800668000149017,
+      "int8_bytes" : 40000000,
+      "note" : "latency-only: vectors are real MiniLM vectors + noise, NOT a retrieval-quality measurement",
+      "rss_peak_mb" : 255.140625,
+      "vectors" : 100000
+    },
+    {
+      "add_seconds" : 74.00072474999979,
+      "dim" : 384,
+      "exact_scan_ms_max" : 157.85258000050817,
+      "exact_scan_ms_p50" : 136.7885909994584,
+      "int8_bytes" : 200000000,
+      "note" : "latency-only: vectors are real MiniLM vectors + noise, NOT a retrieval-quality measurement",
+      "rss_peak_mb" : 581.125,
+      "vectors" : 500000
+    }
+  ],
+  "real_stages" : [
+    {
+      "add_seconds" : 0.013840707999406732,
+      "dim" : 384,
+      "float_bruteforce_ms_per_query" : 0.7470900699991034,
+      "int8_bytes" : 800000,
+      "int8_exact_ms_per_query" : 0.42590697333253047,
+      "int8_exact_recall_at_10_vs_float" : 0.9936666666666667,
+      "ivf_sweep" : [
+        {
+          "ms_per_query" : 0.11773489333184746,
+          "nprobe" : 1,
+          "recall_at_10" : 0.40299999999999997
+        },
+        {
+          "ms_per_query" : 0.16064324333153004,
+          "nprobe" : 2,
+          "recall_at_10" : 0.5593333333333333
+        },
+        {
+          "ms_per_query" : 0.19613428666464947,
+          "nprobe" : 4,
+          "recall_at_10" : 0.7203333333333336
+        },
+        {
+          "ms_per_query" : 0.2789496700006566,
+          "nprobe" : 8,
+          "recall_at_10" : 0.8453333333333348
+        },
+        {
+          "ms_per_query" : 0.4296256066663773,
+          "nprobe" : 16,
+          "recall_at_10" : 0.9400000000000007
+        },
+        {
+          "ms_per_query" : 0.6724749366670343,
+          "nprobe" : 32,
+          "recall_at_10" : 0.986
+        },
+        {
+          "ms_per_query" : 1.2375004833332544,
+          "nprobe" : 64,
+          "recall_at_10" : 0.9936666666666667
+        }
+      ],
+      "lists" : 67,
+      "train_seconds" : 0.3998215519995938,
+      "vectors" : 2000
+    },
+    {
+      "add_seconds" : 0.02957907400013937,
+      "dim" : 384,
+      "float_bruteforce_ms_per_query" : 1.6751127966684483,
+      "int8_bytes" : 2000000,
+      "int8_exact_ms_per_query" : 1.1879224233325658,
+      "int8_exact_recall_at_10_vs_float" : 0.9926666666666667,
+      "ivf_sweep" : [
+        {
+          "ms_per_query" : 0.21936730666614798,
+          "nprobe" : 1,
+          "recall_at_10" : 0.42566666666666675
+        },
+        {
+          "ms_per_query" : 0.23501035000056922,
+          "nprobe" : 2,
+          "recall_at_10" : 0.5906666666666666
+        },
+        {
+          "ms_per_query" : 0.27315184999982495,
+          "nprobe" : 4,
+          "recall_at_10" : 0.7370000000000003
+        },
+        {
+          "ms_per_query" : 0.35078046666664403,
+          "nprobe" : 8,
+          "recall_at_10" : 0.8563333333333341
+        },
+        {
+          "ms_per_query" : 0.5024373966656034,
+          "nprobe" : 16,
+          "recall_at_10" : 0.9346666666666675
+        },
+        {
+          "ms_per_query" : 0.8121876866668268,
+          "nprobe" : 32,
+          "recall_at_10" : 0.9736666666666668
+        },
+        {
+          "ms_per_query" : 1.4135974800016509,
+          "nprobe" : 64,
+          "recall_at_10" : 0.9919999999999999
+        }
+      ],
+      "lists" : 106,
+      "train_seconds" : 1.8775439820001338,
+      "vectors" : 5000
+    },
+    {
+      "add_seconds" : 0.05746209799963253,
+      "dim" : 384,
+      "float_bruteforce_ms_per_query" : 3.645435029999741,
+      "int8_bytes" : 4000000,
+      "int8_exact_ms_per_query" : 2.2834702866687926,
+      "int8_exact_recall_at_10_vs_float" : 0.996,
+      "ivf_sweep" : [
+        {
+          "ms_per_query" : 0.6336286100001113,
+          "nprobe" : 1,
+          "recall_at_10" : 0.4699999999999999
+        },
+        {
+          "ms_per_query" : 0.5236332766677757,
+          "nprobe" : 2,
+          "recall_at_10" : 0.6296666666666665
+        },
+        {
+          "ms_per_query" : 0.49881684333437687,
+          "nprobe" : 4,
+          "recall_at_10" : 0.7666666666666673
+        },
+        {
+          "ms_per_query" : 0.5975746566673479,
+          "nprobe" : 8,
+          "recall_at_10" : 0.8606666666666672
+        },
+        {
+          "ms_per_query" : 0.8711007599989292,
+          "nprobe" : 16,
+          "recall_at_10" : 0.926666666666668
+        },
+        {
+          "ms_per_query" : 1.4392718566644664,
+          "nprobe" : 32,
+          "recall_at_10" : 0.9703333333333339
+        },
+        {
+          "ms_per_query" : 2.702908153332828,
+          "nprobe" : 64,
+          "recall_at_10" : 0.9880000000000001
+        }
+      ],
+      "lists" : 150,
+      "train_seconds" : 4.866547104999881,
+      "vectors" : 10000
+    },
+    {
+      "add_seconds" : 0.09193427300033363,
+      "dim" : 384,
+      "float_bruteforce_ms_per_query" : 7.547710616666639,
+      "int8_bytes" : 8000000,
+      "int8_exact_ms_per_query" : 4.936934363334633,
+      "int8_exact_recall_at_10_vs_float" : 0.9956666666666665,
+      "ivf_sweep" : [
+        {
+          "ms_per_query" : 0.8729400566638409,
+          "nprobe" : 1,
+          "recall_at_10" : 0.4730000000000001
+        },
+        {
+          "ms_per_query" : 0.9380639033345991,
+          "nprobe" : 2,
+          "recall_at_10" : 0.6403333333333341
+        },
+        {
+          "ms_per_query" : 0.9588767866656175,
+          "nprobe" : 4,
+          "recall_at_10" : 0.7620000000000008
+        },
+        {
+          "ms_per_query" : 0.9982152666664964,
+          "nprobe" : 8,
+          "recall_at_10" : 0.8480000000000005
+        },
+        {
+          "ms_per_query" : 1.3836991066636983,
+          "nprobe" : 16,
+          "recall_at_10" : 0.9150000000000006
+        },
+        {
+          "ms_per_query" : 2.0064656800028993,
+          "nprobe" : 32,
+          "recall_at_10" : 0.9609999999999999
+        },
+        {
+          "ms_per_query" : 3.037994020002467,
+          "nprobe" : 64,
+          "recall_at_10" : 0.985
+        }
+      ],
+      "lists" : 212,
+      "train_seconds" : 13.806789848000335,
+      "vectors" : 20000
+    },
+    {
+      "add_seconds" : 0.18761601000005612,
+      "dim" : 384,
+      "float_bruteforce_ms_per_query" : 16.11357539666945,
+      "int8_bytes" : 12523600,
+      "int8_exact_ms_per_query" : 9.279176626666109,
+      "int8_exact_recall_at_10_vs_float" : 0.9929999999999999,
+      "ivf_sweep" : [
+        {
+          "ms_per_query" : 1.3395652666683115,
+          "nprobe" : 1,
+          "recall_at_10" : 0.541
+        },
+        {
+          "ms_per_query" : 1.179808930000945,
+          "nprobe" : 2,
+          "recall_at_10" : 0.6693333333333339
+        },
+        {
+          "ms_per_query" : 1.4701093499994993,
+          "nprobe" : 4,
+          "recall_at_10" : 0.7820000000000007
+        },
+        {
+          "ms_per_query" : 1.4136153400007363,
+          "nprobe" : 8,
+          "recall_at_10" : 0.8636666666666675
+        },
+        {
+          "ms_per_query" : 1.9304815133333857,
+          "nprobe" : 16,
+          "recall_at_10" : 0.9240000000000007
+        },
+        {
+          "ms_per_query" : 2.478657283333329,
+          "nprobe" : 32,
+          "recall_at_10" : 0.9646666666666671
+        },
+        {
+          "ms_per_query" : 4.255349519999072,
+          "nprobe" : 64,
+          "recall_at_10" : 0.9829999999999999
+        }
+      ],
+      "lists" : 265,
+      "train_seconds" : 24.219479171000785,
+      "vectors" : 31309
+    }
+  ]
+}

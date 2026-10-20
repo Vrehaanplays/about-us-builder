@@ -13,6 +13,8 @@ struct Args {
     var queries = 150
     var keep = false
     var embedDim = 256
+    var vectorsFile: String?
+    var scaleSizes: [Int] = []
 }
 
 func parse() -> Args {
@@ -26,6 +28,8 @@ func parse() -> Args {
         case "--needles": a.needles = Int(it.next() ?? "") ?? a.needles
         case "--queries": a.queries = Int(it.next() ?? "") ?? a.queries
         case "--keep": a.keep = true
+        case "--vectors-file": a.vectorsFile = it.next()
+        case "--scale": a.scaleSizes = (it.next() ?? "").split(separator: ",").compactMap { Int($0) }
         case "--dim": a.embedDim = Int(it.next() ?? "") ?? a.embedDim
         default: print("unknown arg \(k)")
         }
@@ -54,6 +58,10 @@ func hostInfo() -> [String: Any] {
 }
 
 let args = parse()
+if let f = args.vectorsFile {
+    try runVectorBench(file: f, dim: args.embedDim, queriesN: 300, scaleSizes: args.scaleSizes, out: args.out)
+    exit(0)
+}
 try FileManager.default.createDirectory(atPath: args.dir, withIntermediateDirectories: true)
 let dbPath = args.dir + "/archive.sqlite"
 let db = try ArchiveDatabase(path: dbPath, profile: .phone)      // phone-sized caches on purpose: measure what the phone profile can do
